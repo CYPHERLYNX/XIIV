@@ -1,0 +1,19 @@
+{
+  "vocab_size": 8192,
+  "mask_id": 2,
+  "eos_id": 3,
+  "d_model": 320,
+  "n_layers": 6,
+  "n_heads": 5,
+  "ffn_dim": 864,
+  "rope_theta": 10000.0,
+  "norm_eps": 1e-06,
+  "dropout": 0.0,
+  "tie_embeddings": true,
+  "seq_len": 128,
+  "t_min": 0.15,
+  "t_max": 1.0,
+  "image_enabled": false,
+  "image_size": 64,
+  "image_patch_size": 16
+}

@@ -1,0 +1,39 @@
+# XIIV — a tiny masked-diffusion language model
+# https://github.com/CYPHERLYNX/XIIV
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+*.log
+
+# Training artifacts (reproducible via scripts; not shipped)
+checkpoints/
+checkpoints_50m/
+checkpoints_ar/
+*.pt
+
+# Datasets (3.6 GB; rebuild with scripts/prepare_data.py — see DATASET_CARD.md)
+data/
+
+# Demo video build intermediates (see brag-output-*/share-copy.txt)
+/brag-output-*/
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
+
+# NOTE: weights/*.safetensors + weights/tokenizer.json + weights/config.json
+# ARE committed intentionally — they are the shipped model (< 100 MB).
+
+# Internal process notes (kept locally, not shipped)
+DAYLOG-*.md
+ITERATION_COMPACT.md
+LAUNCH-KIT.md
+BIG_LAB_PLAYBOOK.md
+AUDIT_FIXES.md
+REVIEW_CODE_SECURITY.md
+RUN_LEDGER.md

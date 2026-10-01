@@ -1,0 +1,25 @@
+{
+  "model": "xiiv",
+  "params": 10059840,
+  "threads": 2,
+  "sampler": "parallel de-masking",
+  "gen_128": {
+    "wall_s": 6.612,
+    "tok_s": 19.4,
+    "forward_passes": 16,
+    "peak_rss_mb": 400.2
+  },
+  "infill": {
+    "blocks": 200,
+    "span_tokens": 32,
+    "recovery_accuracy": 0.0938,
+    "correct_tokens": 600,
+    "total_tokens": 6400,
+    "wall_s_total": 995.45,
+    "wall_s_per_block": 4.977,
+    "forward_passes_per_block": 16,
+    "forward_passes_total": 3200,
+    "peak_rss_mb": 400.2
+  },
+  "peak_rss_mb": 400.2
+}

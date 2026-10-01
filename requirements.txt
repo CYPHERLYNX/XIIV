@@ -1,0 +1,16 @@
+# XIIV dependencies — PINNED (reproducibility: ecc_mle_workflow).
+# Exact versions used for the 2026-10-01 reference training runs.
+# CPU-only torch is enough for training the 10M reference config and
+# for all inference.
+#
+# Install with:
+#   python -m venv .venv && .venv/bin/pip install -r requirements.txt
+#
+# torch CPU wheel: pip installs the +cpu build by default on machines
+# without CUDA; for explicitness use the PyTorch CPU index:
+#   .venv/bin/pip install --index-url https://download.pytorch.org/whl/cpu -r requirements.txt
+
+torch==2.14.1+cpu       # model, training, inference
+tokenizers==0.23.2      # BPE tokenizer training + inference (offline after train)
+numpy==2.5.3            # memmap data pipeline
+safetensors==0.8.0      # weight export / loading (no pickle)

@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BRAN — masked-diffusion LM demo</title>
+<style>
+  :root {
+    --bg: #0b0b0d; --panel: #121216; --panel2: #17171c;
+    --line: #26262e; --txt: #e8e8ea; --dim: #9a9aa3; --faint: #5c5c66;
+    --accent: #e8a33d; --accent-dim: #7a5a26; --mask: #2a2a33;
+    --mono: "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+    --sans: -apple-system, "Segoe UI", Inter, Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--txt);
+         font-family: var(--sans); -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 40px 24px 80px; }
+  header { margin-bottom: 28px; }
+  h1 { font-size: 30px; letter-spacing: 0.35em; margin: 0 0 6px; font-weight: 700; }
+  h1 span { color: var(--accent); }
+  .sub { color: var(--dim); font-size: 14px; line-height: 1.6; max-width: 640px; }
+  .sub code { font-family: var(--mono); font-size: 12.5px; color: var(--txt);
+              background: var(--panel2); padding: 1px 6px; border-radius: 4px; }
+  .tabs { display: flex; gap: 8px; margin: 26px 0 18px; }
+  .tab { background: var(--panel); border: 1px solid var(--line); color: var(--dim);
+         padding: 9px 18px; border-radius: 8px; cursor: pointer; font-size: 14px; }
+  .tab.active { color: var(--txt); border-color: var(--accent-dim);
+                background: var(--panel2); }
+  .card { background: var(--panel); border: 1px solid var(--line);
+          border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+  label { display: block; font-size: 12px; color: var(--dim);
+          text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 6px; }
+  textarea, input[type=text], input[type=number] {
+    width: 100%; background: var(--bg); border: 1px solid var(--line);
+    color: var(--txt); border-radius: 8px; padding: 10px 12px;
+    font-family: var(--mono); font-size: 14px; }
+  textarea:focus, input:focus { outline: none; border-color: var(--accent-dim); }
+  textarea { min-height: 76px; resize: vertical; }
+  .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
+          margin-top: 14px; }
+  .grid input { width: 100%; }
+  .row { display: flex; gap: 10px; margin-top: 16px; align-items: center; }
+  button.go { background: var(--accent); color: #141414; border: 0;
+              padding: 11px 26px; border-radius: 8px; font-size: 14px;
+              font-weight: 700; cursor: pointer; }
+  button.go:disabled { opacity: 0.45; cursor: wait; }
+  .hint { font-size: 12.5px; color: var(--faint); }
+  #out { font-family: var(--mono); font-size: 15px; line-height: 1.75;
+         white-space: pre-wrap; word-break: break-word; min-height: 120px; }
+  #out .m { background: var(--mask); color: var(--faint); border-radius: 4px;
+            padding: 0 4px; }
+  #out .new { color: var(--accent); animation: pop 0.5s ease; }
+  @keyframes pop { from { background: #3a2c14; } to { background: transparent; } }
+  .steps { display: flex; gap: 6px; margin-top: 14px; flex-wrap: wrap; }
+  .stepdot { width: 26px; height: 8px; border-radius: 4px; background: var(--line); }
+  .stepdot.done { background: var(--accent); }
+  .meta { display: flex; gap: 18px; margin-top: 12px; font-size: 12.5px;
+          color: var(--faint); font-family: var(--mono); }
+  .err { color: #e06c5c; font-size: 13px; margin-top: 10px; font-family: var(--mono); }
+  footer { margin-top: 40px; color: var(--faint); font-size: 12.5px; line-height: 1.7; }
+  footer a { color: var(--dim); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>BRAN</h1>
+    <p class="sub">Named for the Raven King — the smartest bird, the darkest omen.
+    A tiny <b>masked-diffusion</b> language model that doesn't write left-to-right.
+    Every generation begins as pure noise, a blank field
+    of <code>[MASK]</code> tokens, and text crystallizes out of it as the model
+    unmasks the most confident tokens in parallel, step by step. Watch it happen
+    below, or give it <code>&lt;mask&gt;</code> spans to infill.</p>
+  </header>
+
+  <div class="tabs">
+    <button class="tab active" data-mode="generate">Generate</button>
+    <button class="tab" data-mode="infill">Infill</button>
+  </div>
+
+  <div class="card" id="panel-generate">
+    <label>Prompt (optional — empty starts from pure noise)</label>
+    <input type="text" id="prompt" placeholder="Once upon a time">
+  </div>
+  <div class="card" id="panel-infill" style="display:none">
+    <label>Text with &lt;mask&gt; markers</label>
+    <textarea id="infill-text">Lily found a <mask> in the garden. It was <mask> and soft.</textarea>
+  </div>
+
+  <div class="card">
+    <div class="grid">
+      <div><label>Length</label><input type="number" id="length" value="128" min="8" max="256"></div>
+      <div><label>Denoise steps</label><input type="number" id="steps" value="16" min="1" max="64"></div>
+      <div><label>Temperature</label><input type="number" id="temp" value="1.0" min="0.1" max="2" step="0.1"></div>
+      <div><label>Seed</label><input type="number" id="seed" value="7" min="0"></div>
+    </div>
+    <div class="row">
+      <button class="go" id="go">De-mask ▸</button>
+      <span class="hint" id="status">idle — runs locally, no network</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="steps" id="stepdots"></div>
+    <div id="out" style="margin-top:12px"></div>
+    <div class="meta" id="meta"></div>
+    <div class="err" id="err"></div>
+  </div>
+
+  <footer>
+    10M params · bidirectional transformer · trained from scratch on TinyStories with a
+    masked-diffusion objective. Runs on CPU. Not comparable to autoregressive perplexity —
+    see the <a href="https://github.com/CYPHERLYNX/bran">README</a> for honest benchmarks.
+  </footer>
+</div>
+<script>
+const $ = id => document.getElementById(id);
+let mode = "generate";
+document.querySelectorAll(".tab").forEach(t => t.onclick = () => {
+  document.querySelectorAll(".tab").forEach(x => x.classList.remove("active"));
+  t.classList.add("active"); mode = t.dataset.mode;
+  $("panel-generate").style.display = mode === "generate" ? "" : "none";
+  $("panel-infill").style.display = mode === "infill" ? "" : "none";
+});
+
+// Render one trajectory frame: diff against previous to highlight new tokens.
+let prevTokens = null;
+function renderFrame(text, stepIdx, nSteps) {
+  const dots = $("stepdots"); dots.innerHTML = "";
+  for (let i = 0; i < nSteps; i++) {
+    const d = document.createElement("div");
+    d.className = "stepdot" + (i <= stepIdx ? " done" : "");
+    dots.appendChild(d);
+  }
+  // We don't have token ids in the text frames, so highlight by simple diff:
+  // wrap the whole frame; newly-appeared words get the accent class.
+  const cur = text.split(/(\s+)/);
+  const prev = prevTokens ? prevTokens : [];
+  const html = cur.map((w, i) =>
+    (prev[i] !== w && /\S/.test(w)) ? `<span class="new">${esc(w)}</span>` : esc(w)
+  ).join("");
+  $("out").innerHTML = html;
+  prevTokens = cur;
+}
+function esc(s){ return s.replace(/[&<>"]/g, c =>
+  ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+
+$("go").onclick = async () => {
+  const btn = $("go"); btn.disabled = true; $("err").textContent = "";
+  prevTokens = null;
+  const body = {
+    length: +$("length").value, steps: +$("steps").value,
+    temperature: +$("temp").value, seed: +$("seed").value,
+    prompt: $("prompt").value,
+  };
+  const url = mode === "generate" ? "/api/generate" : "/api/infill";
+  if (mode === "infill") body.text = $("infill-text").value;
+  $("status").textContent = "de-masking…";
+  const t0 = performance.now();
+  try {
+    const r = await fetch(url, {method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(body)});
+    const j = await r.json();
+    if (j.error) throw new Error(j.error);
+    const frames = j.trajectory || [j.text];
+    for (let i = 0; i < frames.length; i++) {
+      renderFrame(frames[i], i, frames.length);
+      await new Promise(r => setTimeout(r, 320));
+    }
+    const dt = ((performance.now() - t0) / 1000).toFixed(1);
+    $("meta").textContent =
+      `${j.tok_s} tok/s · ${j.seconds}s model time · ${frames.length} steps · seed ${body.seed}`;
+    $("status").textContent = `done in ${dt}s`;
+  } catch (e) {
+    $("err").textContent = "error: " + e.message;
+    $("status").textContent = "idle";
+  }
+  btn.disabled = false;
+};
+</script>
+</body>
+</html>

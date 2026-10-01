@@ -1,0 +1,32 @@
+{
+  "xiiv": {
+    "exact_length": {
+      "satisfaction": 1.0
+    },
+    "forbidden_words": {
+      "satisfaction": 1.0
+    },
+    "edit_region_preservation": {
+      "satisfaction": 1.0
+    },
+    "must_include_words": {
+      "satisfaction": 1.0
+    }
+  },
+  "meta": {
+    "trials": 50,
+    "seeds": "1000..1049 etc (fixed, non-cherry-picked)",
+    "gen_length": 64,
+    "steps": 16,
+    "threads": 2,
+    "elapsed_s": 913.9,
+    "words": [
+      " rabbit",
+      " forest",
+      " dragon",
+      " happy",
+      " quickly",
+      " river"
+    ]
+  }
+}

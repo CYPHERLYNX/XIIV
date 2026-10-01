@@ -1,0 +1,38 @@
+{
+  "G1 train_completed": {
+    "pass": true,
+    "detail": "max_step=5000 aborted=False"
+  },
+  "G2 val_nll_bound<=4.0": {
+    "pass": true,
+    "detail": "best_val_nll=3.4021"
+  },
+  "G3 exact_length==1.0": {
+    "pass": true,
+    "detail": "satisfaction=1.0"
+  },
+  "G4 forbidden_absent==1.0": {
+    "pass": true,
+    "detail": "satisfaction=1.0"
+  },
+  "G5 anchors_intact==1.0": {
+    "pass": true,
+    "detail": "satisfaction=1.0"
+  },
+  "G6 required_present>=0.95": {
+    "pass": true,
+    "detail": "satisfaction=1.0"
+  },
+  "G7 cpu_tok_s>=50": {
+    "pass": false,
+    "detail": "tok_s=19.4"
+  },
+  "G8 inference_smoke": {
+    "pass": true,
+    "detail": "generate+infill+constrain ok"
+  },
+  "G9 weights_finite_and_count": {
+    "pass": true,
+    "detail": "params=10059840 finite=True"
+  }
+}

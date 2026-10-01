@@ -16,7 +16,7 @@
 - **Compute:** single CPU, 2 threads, BF16, batch 48, 5,000 steps,
   30.7M tokens seen (completed 2026-10-01 ~15:52 IST after a resume from
   step 4,520 — an earlier interruption was recovered, not hidden)
-- **Release:** weights (safetensors) + tokenizer + config, Apache 2.0
+- **Release:** weights (safetensors) + tokenizer + config, MIT
 
 ## Intended use
 Research and demonstration of **constraint-native generation at tiny scale**:
@@ -26,8 +26,9 @@ reasoning (scratchpad thinking, self-revision). Not a general chat model;
 trained on single-domain children's stories.
 
 ## What is genuinely different here
-Autoregressive models generate left-to-right and cannot take a token back.
-XIIV denoises the whole canvas in parallel and **can revise**: low-confidence
+Autoregressive models generate left-to-right; revising an emitted token means
+regenerating from scratch. XIIV denoises the whole canvas in parallel and
+**revises natively in-canvas**: low-confidence
 spans are remasked and re-denoised in place with full bidirectional context.
 Constraints (required/forbidden tokens, locked spans, exact length) are
 enforced structurally during denoising — not filtered after generation.

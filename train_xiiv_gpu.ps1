@@ -25,7 +25,7 @@ Set-Location $Root
 function Fail($msg) {
   Write-Host ""
   Write-Host "ERROR: $msg" -ForegroundColor Red
-  Write-Host "If you are stuck, open an issue at https://github.com/CYPHERLYNX/xiiv"
+  Write-Host "If you are stuck, open an issue at https://github.com/CYPHERLYNX/XIIV"
   exit 1
 }
 

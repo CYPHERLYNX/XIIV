@@ -8,7 +8,7 @@
 #
 # Or just run train_xiiv_gpu.ps1 — it does all of this for you.
 
---index-url https://download.pytorch.org/whl/cu128
+--extra-index-url https://download.pytorch.org/whl/cu128
 torch==2.14.1+cu128     # model, training, inference (CUDA 12.8 build)
 tokenizers==0.23.2      # BPE tokenizer training + inference
 numpy==2.5.3            # memmap data pipeline

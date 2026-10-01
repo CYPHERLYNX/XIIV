@@ -1,16 +1,16 @@
 # XIIV dependencies — PINNED (reproducibility: ecc_mle_workflow).
 # Exact versions used for the 2026-10-01 reference training runs.
-# CPU-only torch is enough for training the 10M reference config and
-# for all inference.
+# Plain `pip install -r requirements.txt` works on stock PyPI — no extra
+# index flags needed. The default torch wheel runs on CPU everywhere and
+# lights up CUDA automatically on NVIDIA GPUs (e.g. RTX 4050).
 #
 # Install with:
 #   python -m venv .venv && .venv/bin/pip install -r requirements.txt
 #
-# torch CPU wheel: pip installs the +cpu build by default on machines
-# without CUDA; for explicitness use the PyTorch CPU index:
-#   .venv/bin/pip install --index-url https://download.pytorch.org/whl/cpu -r requirements.txt
+# Slim CPU-only alternative (smaller download, no CUDA libs):
+#   pip install --extra-index-url https://download.pytorch.org/whl/cpu torch==2.14.1+cpu
 
-torch==2.14.1+cpu       # model, training, inference
+torch==2.14.1            # model, training, inference (CPU + CUDA wheel)
 tokenizers==0.23.2      # BPE tokenizer training + inference (offline after train)
 numpy==2.5.3            # memmap data pipeline
 safetensors==0.8.0      # weight export / loading (no pickle)

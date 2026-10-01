@@ -1,0 +1,75 @@
+# XIIV — reference for AI coding assistants
+
+XIIV is a tiny masked-diffusion language model (10,059,840 params), trained
+from scratch on CPU. It does NOT predict left-to-right: every generation
+starts as a blank field of [MASK] tokens and resolves the most confident
+positions in parallel over N denoising steps. Brand is always "XIIV"
+(uppercase); the Python package directory is lowercase `xiiv/` (required).
+
+## Install
+
+    git clone https://github.com/CYPHERLYNX/XIIV.git && cd XIIV
+    python -m venv .venv && .venv/bin/pip install -r requirements.txt
+    # Windows: setup.bat  (or train_xiiv_gpu.ps1 for RTX GPU training)
+
+No PyPI package. Inference makes zero network calls; weights, tokenizer and
+config ship in `weights/`.
+
+## Python API (`xiiv/api.py`)
+
+    from xiiv import XIIV
+    m = XIIV("weights/xiiv.safetensors")          # also loads config.json + tokenizer.json
+    m.infill("The <mask> sat on the <mask>.", seed=3)   # masked-span infilling
+    m.generate(length=128, steps=16, seed=7)            # generate from noise
+    m.generate(length=160, prompt="Once upon a time")   # prompt-conditioned
+
+`infill` preserves locked (unmasked) context exactly. Both are deterministic
+given `seed`. `m.n_params` == 10_059_840.
+
+## CLI
+
+    .venv/bin/python -m xiiv.sample generate --length 128 --steps 16 --seed 7
+    .venv/bin/python -m xiiv.sample infill --text "The <mask> sat on the <mask>."
+    .venv/bin/python -m xiiv.sample generate --scratchpad 32 --length 128   # reasoning-first
+    .venv/bin/python -m xiiv.sample generate --refine-rounds 2              # self-correction
+    .venv/bin/python -m xiiv.serve   # local demo at http://localhost:8765/ (127.0.0.1 only)
+
+## Constraints (enforced DURING denoising, measured 1.000 on all four)
+
+- required tokens force-placed; forbidden tokens masked to -inf in logits
+- locked spans (infill context) never written; output always exactly the
+  requested length
+- see `xiiv/diffusion.py`: `check_constraints`, `sample_trajectory`
+
+## Training (reproduce)
+
+    .venv/bin/python scripts/prepare_data.py --out-dir data \
+        --train-chars 150000000 --valid-chars 5000000   # TinyStories, CC-BY
+    .venv/bin/python -m xiiv.train --data data --ckpt-dir checkpoints \
+        --total-steps 5000 --batch-size 48 --bf16       # resumable, Ctrl-C safe
+    .venv/bin/python -m xiiv.evaluate --weights weights/xiiv.safetensors
+    .venv/bin/python scripts/export_weights.py --ckpt checkpoints/best.pt
+
+Frozen configs with hashes: `checkpoints_*/run_config.json`. Full recipe in
+TRAINING.md. GPU (RTX 4050): `.\train_xiiv_gpu.ps1`.
+
+## Key files
+
+- `xiiv/model.py` — 6L bidirectional transformer, d=320, 5 heads, SwiGLU-864,
+  RoPE, RMSNorm, tied embeddings, no causal mask
+- `xiiv/diffusion.py` — forward mask process, `sample_trajectory`,
+  `generate_with_scratchpad`, `self_refine`, `generate_long`
+- `xiiv/vision.py` — UNtrained multimodal architecture scaffold (do not
+  present as a capability)
+- `weights/` — shipped fp32 safetensors (38.4 MiB) + tokenizer.json + config.json
+- `benchmarks/` — constraint + throughput benchmarks; `scripts/check_gates.py`
+
+## Honest numbers (do not inflate)
+
+- best val masked-NLL 3.4021 nats/token = an UPPER BOUND, not comparable to
+  autoregressive perplexity; never compare numerically
+- promotion gates 8/9 — G7 (throughput) FAILED at 19.4 tok/s vs 25 required;
+  recorded as failed, not waived
+- 27/27 test suites (28 with test_api.py); outputs are rough (TinyStories
+  English); a 52.5M-param XIIV is training and will update this repo
+- no emojis anywhere in the repo (project rule)

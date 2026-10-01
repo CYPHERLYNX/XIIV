@@ -3,9 +3,11 @@ import torch
 
 from .config import ModelConfig
 from .model import XIIVModel
+from .api import XIIV
 
 __version__ = "0.1.0"
-__all__ = ["ModelConfig", "XIIVModel", "__version__", "load_ckpt_trusted"]
+__all__ = ["ModelConfig", "XIIVModel", "XIIV", "__version__",
+           "load_ckpt_trusted"]
 
 
 def load_ckpt_trusted(path, map_location="cpu"):

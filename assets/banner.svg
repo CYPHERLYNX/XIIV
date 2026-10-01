@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="320" viewBox="0 0 1200 320" role="img" aria-label="XIIV banner">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0b0d10"/>
+      <stop offset="1" stop-color="#14181d"/>
+    </linearGradient>
+    <linearGradient id="fill" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#3a4552"/>
+      <stop offset="1" stop-color="#7d8ca3"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="320" fill="url(#bg)"/>
+  <!-- de-masking motif: outlined blocks resolving into filled ones -->
+  <g opacity="0.9">
+    <rect x="80" y="140" width="34" height="34" rx="6" fill="none" stroke="#3a4552" stroke-width="2"/>
+    <rect x="126" y="140" width="34" height="34" rx="6" fill="none" stroke="#3a4552" stroke-width="2"/>
+    <rect x="172" y="140" width="34" height="34" rx="6" fill="none" stroke="#556274" stroke-width="2"/>
+    <rect x="218" y="140" width="34" height="34" rx="6" fill="none" stroke="#556274" stroke-width="2"/>
+    <rect x="264" y="140" width="34" height="34" rx="6" fill="url(#fill)" opacity="0.55"/>
+    <rect x="310" y="140" width="34" height="34" rx="6" fill="url(#fill)" opacity="0.8"/>
+    <rect x="356" y="140" width="34" height="34" rx="6" fill="url(#fill)"/>
+  </g>
+  <text x="80" y="228" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="26" fill="#8b98ab" letter-spacing="2">FROM NOISE, IN PARALLEL</text>
+  <text x="470" y="170" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="120" font-weight="700" fill="#f2f4f7" letter-spacing="18">XIIV</text>
+  <text x="474" y="218" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="24" fill="#aeb9c9">A tiny discrete-diffusion language model.</text>
+  <text x="474" y="252" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="24" fill="#7d8ca3">Generate in parallel. Infill natively. Constrain exactly.</text>
+  <rect x="0" y="318" width="1200" height="2" fill="#2a323c"/>
+</svg>

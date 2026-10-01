@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="470" viewBox="0 0 1200 470" role="img" aria-label="XIIV-10M measured benchmarks">
+  <rect width="1200" height="470" fill="#0b0d10" rx="12"/>
+  <text x="600" y="42" text-anchor="middle" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="20" font-weight="700" fill="#e6ebf2">XIIV-10M — MEASURED BENCHMARKS (2 CPU THREADS, NO GPU)</text>
+
+  <!-- left panel: constraints -->
+  <text x="60" y="92" font-family="'Segoe UI', Arial, sans-serif" font-size="16" font-weight="600" fill="#e6ebf2">Constraint enforcement during denoising</text>
+  <g font-family="'Segoe UI', Arial, sans-serif">
+    <!-- axes -->
+    <line x1="60" y1="360" x2="620" y2="360" stroke="#2a323c" stroke-width="2"/>
+    <line x1="60" y1="110" x2="60" y2="360" stroke="#2a323c" stroke-width="2"/>
+    <!-- bars: all 1.000 -->
+    <g>
+      <rect x="100" y="130" width="90" height="230" fill="#4c6a8a" stroke="#7d8ca3"/>
+      <text x="145" y="120" text-anchor="middle" font-size="15" font-weight="700" fill="#e6ebf2">1.000</text>
+      <text x="145" y="382" text-anchor="middle" font-size="13" fill="#8b98ab">Exact length</text>
+      <rect x="230" y="130" width="90" height="230" fill="#4c6a8a" stroke="#7d8ca3"/>
+      <text x="275" y="120" text-anchor="middle" font-size="15" font-weight="700" fill="#e6ebf2">1.000</text>
+      <text x="275" y="382" text-anchor="middle" font-size="13" fill="#8b98ab">Locked-region</text>
+      <text x="275" y="400" text-anchor="middle" font-size="13" fill="#8b98ab">preservation</text>
+      <rect x="360" y="130" width="90" height="230" fill="#4c6a8a" stroke="#7d8ca3"/>
+      <text x="405" y="120" text-anchor="middle" font-size="15" font-weight="700" fill="#e6ebf2">1.000</text>
+      <text x="405" y="382" text-anchor="middle" font-size="13" fill="#8b98ab">Required-token</text>
+      <text x="405" y="400" text-anchor="middle" font-size="13" fill="#8b98ab">inclusion</text>
+      <rect x="490" y="130" width="90" height="230" fill="#4c6a8a" stroke="#7d8ca3"/>
+      <text x="535" y="120" text-anchor="middle" font-size="15" font-weight="700" fill="#e6ebf2">1.000</text>
+      <text x="535" y="382" text-anchor="middle" font-size="13" fill="#8b98ab">Forbidden-token</text>
+      <text x="535" y="400" text-anchor="middle" font-size="13" fill="#8b98ab">satisfaction</text>
+    </g>
+  </g>
+
+  <!-- right panel: throughput, the honest miss -->
+  <text x="700" y="92" font-family="'Segoe UI', Arial, sans-serif" font-size="16" font-weight="600" fill="#e6ebf2">Generation speed, 128 tokens / 16 steps</text>
+  <g font-family="'Segoe UI', Arial, sans-serif">
+    <line x1="700" y1="360" x2="1140" y2="360" stroke="#2a323c" stroke-width="2"/>
+    <line x1="700" y1="110" x2="700" y2="360" stroke="#2a323c" stroke-width="2"/>
+    <!-- bar: 19.4 of 32 max -->
+    <rect x="830" y="208" width="110" height="152" fill="#8a5a4c" stroke="#a37d6e"/>
+    <text x="885" y="198" text-anchor="middle" font-size="15" font-weight="700" fill="#e6ebf2">19.4 tok/s</text>
+    <text x="885" y="382" text-anchor="middle" font-size="13" fill="#8b98ab">measured</text>
+    <!-- gate line at 25 -->
+    <line x1="700" y1="165" x2="1140" y2="165" stroke="#c3ccd9" stroke-width="2" stroke-dasharray="8,6"/>
+    <text x="1150" y="160" text-anchor="end" font-size="13" fill="#c3ccd9">G7 gate: 25 tok/s</text>
+    <text x="885" y="150" text-anchor="middle" font-size="13" font-weight="600" fill="#d08a7a">FAILED — not waived</text>
+    <text x="920" y="300" font-size="12" fill="#7d8ca3">6.6 s · 16 forward passes</text>
+    <text x="920" y="320" font-size="12" fill="#7d8ca3">peak RSS 400.2 MB</text>
+  </g>
+
+  <text x="600" y="440" text-anchor="middle" font-family="'Segoe UI', Arial, sans-serif" font-size="13" fill="#7d8ca3">10,059,840 params (exact) · best val masked-NLL 3.4021 nats/token (upper bound — not AR perplexity) · 8/9 promotion gates · 27/27 test suites</text>
+</svg>

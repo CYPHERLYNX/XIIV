@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="380" viewBox="0 0 1200 380" role="img" aria-label="XIIV diffusion architecture diagram">
+  <defs>
+    <linearGradient id="abg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0b0d10"/>
+      <stop offset="1" stop-color="#12151a"/>
+    </linearGradient>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#7d8ca3"/>
+    </marker>
+  </defs>
+  <rect width="1200" height="380" fill="url(#abg)" rx="12"/>
+  <text x="40" y="48" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="22" font-weight="600" fill="#e6ebf2" letter-spacing="3">HOW XIIV GENERATES</text>
+
+  <!-- step 1: masked canvas -->
+  <g>
+    <rect x="40" y="90" width="200" height="120" rx="10" fill="#161b21" stroke="#2a323c"/>
+    <text x="60" y="122" font-family="'Segoe UI', Arial, sans-serif" font-size="16" fill="#8b98ab">1. BLANK CANVAS</text>
+    <g font-family="monospace" font-size="20" fill="#556274">
+      <text x="60" y="160">[M][M][M][M]</text>
+      <text x="60" y="188">[M][M][M][M]</text>
+    </g>
+  </g>
+  <line x1="240" y1="150" x2="290" y2="150" stroke="#7d8ca3" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- step 2: transformer -->
+  <g>
+    <rect x="290" y="90" width="280" height="120" rx="10" fill="#161b21" stroke="#2a323c"/>
+    <text x="310" y="122" font-family="'Segoe UI', Arial, sans-serif" font-size="16" fill="#8b98ab">2. BIDIRECTIONAL PASS</text>
+    <text x="310" y="152" font-family="'Segoe UI', Arial, sans-serif" font-size="15" fill="#c3ccd9">6-layer transformer, no causal mask</text>
+    <text x="310" y="176" font-family="'Segoe UI', Arial, sans-serif" font-size="15" fill="#c3ccd9">d=320 · 5 heads · SwiGLU · RoPE</text>
+    <text x="310" y="200" font-family="'Segoe UI', Arial, sans-serif" font-size="15" fill="#7d8ca3">every position sees every position</text>
+  </g>
+  <line x1="570" y1="150" x2="620" y2="150" stroke="#7d8ca3" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- step 3: parallel fill -->
+  <g>
+    <rect x="620" y="90" width="240" height="120" rx="10" fill="#161b21" stroke="#2a323c"/>
+    <text x="640" y="122" font-family="'Segoe UI', Arial, sans-serif" font-size="16" fill="#8b98ab">3. PARALLEL DE-MASK</text>
+    <text x="640" y="152" font-family="'Segoe UI', Arial, sans-serif" font-size="15" fill="#c3ccd9">most-confident k positions</text>
+    <text x="640" y="176" font-family="'Segoe UI', Arial, sans-serif" font-size="15" fill="#c3ccd9">sampled at once — nothing</text>
+    <text x="640" y="200" font-family="'Segoe UI', Arial, sans-serif" font-size="15" fill="#c3ccd9">is written left-to-right</text>
+  </g>
+  <line x1="860" y1="150" x2="910" y2="150" stroke="#7d8ca3" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- step 4: text -->
+  <g>
+    <rect x="910" y="90" width="250" height="120" rx="10" fill="#1a2129" stroke="#3a4552"/>
+    <text x="930" y="122" font-family="'Segoe UI', Arial, sans-serif" font-size="16" fill="#8b98ab">4. TEXT, AFTER 16 STEPS</text>
+    <text x="930" y="156" font-family="'Segoe UI', Arial, sans-serif" font-size="15" fill="#e6ebf2">Lily found a rabbit</text>
+    <text x="930" y="180" font-family="'Segoe UI', Arial, sans-serif" font-size="15" fill="#e6ebf2">in the garden.</text>
+    <text x="930" y="204" font-family="'Segoe UI', Arial, sans-serif" font-size="13" fill="#7d8ca3">low-confidence spans can re-mask</text>
+  </g>
+
+  <!-- loop-back arrow -->
+  <path d="M 740 210 C 740 260, 430 260, 430 222" fill="none" stroke="#556274" stroke-width="2" stroke-dasharray="6,5" marker-end="url(#arrow)"/>
+  <text x="560" y="252" font-family="'Segoe UI', Arial, sans-serif" font-size="14" fill="#7d8ca3">repeat until resolved</text>
+
+  <!-- constraints row -->
+  <text x="40" y="308" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="16" font-weight="600" fill="#8b98ab" letter-spacing="2">CONSTRAINTS, ENFORCED DURING DENOISING — NOT AFTER</text>
+  <g font-family="'Segoe UI', Arial, sans-serif" font-size="15" fill="#c3ccd9">
+    <rect x="40" y="322" width="262" height="34" rx="8" fill="#161b21" stroke="#2a323c"/>
+    <text x="56" y="344">required tokens force-placed</text>
+    <rect x="314" y="322" width="262" height="34" rx="8" fill="#161b21" stroke="#2a323c"/>
+    <text x="330" y="344">forbidden tokens masked to -inf</text>
+    <rect x="588" y="322" width="240" height="34" rx="8" fill="#161b21" stroke="#2a323c"/>
+    <text x="604" y="344">locked spans never written</text>
+    <rect x="840" y="322" width="320" height="34" rx="8" fill="#161b21" stroke="#2a323c"/>
+    <text x="856" y="344">canvas is always exactly the requested length</text>
+  </g>
+</svg>

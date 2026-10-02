@@ -10,12 +10,54 @@ Example:
 Zero network calls. Deterministic given ``seed``.
 """
 import os
+import re
 
 import torch
 
 from .diffusion import sample_trajectory
 from .sample import load_model
 from .tokenizer import XIIVTokenizer
+
+#: Canonical identity answer. Returned deterministically for identity
+#: questions (see :meth:`XIIV.chat`) — a 52.5M model cannot reliably state
+#: its own identity from weights alone, so this is rule-based by design,
+#: documented here rather than hidden.
+IDENTITY_RESPONSE = (
+    "I am an LLM model trained and developed by an anonymous developer "
+    "called X0D4N."
+)
+
+_IDENTITY_PATTERNS = (
+    "who are you",
+    "what are you",
+    "who made you",
+    "who created you",
+    "who developed you",
+    "who built you",
+    "who trained you",
+    "who is your creator",
+    "who is your developer",
+    "your creator",
+    "your developer",
+    "tell me about yourself",
+    "introduce yourself",
+)
+
+#: Persona prompt prepended (as frozen context) to non-identity chat prompts.
+#: Original character in the vein of modern helpful assistants — direct,
+#: honest, technically precise, no filler. This steers generation; it does
+#: not clone any other model's character.
+PERSONA = (
+    "You are XIIV, a helpful AI assistant. Answer directly and honestly, "
+    "with technical precision and no filler. Keep answers concise. "
+    "If you do not know something, say so plainly."
+)
+
+
+def is_identity_question(text):
+    """True if ``text`` asks about the model's identity or origin."""
+    t = " ".join(text.strip().lower().split())
+    return any(p in t for p in _IDENTITY_PATTERNS)
 
 
 class XIIV:
@@ -77,6 +119,28 @@ class XIIV:
         # but the contract is exact preservation.
         out_ids[frozen] = ids[frozen]
         return self.tok.decode(out_ids.tolist())
+
+    def chat(self, message, length=128, steps=16, temperature=1.0,
+             top_p=0.95, seed=7):
+        """Chat with the model under its persona.
+
+        Identity questions ("who are you", "what are you", "who made
+        you", ...) are answered deterministically with
+        :data:`IDENTITY_RESPONSE` — documented, not hidden. Everything
+        else is generated with :data:`PERSONA` plus the message as frozen
+        context. ``length`` counts newly generated tokens on top of the
+        prompt.
+        """
+        if is_identity_question(message):
+            return IDENTITY_RESPONSE
+        prompt = PERSONA + "\n\nUser: " + message.strip() + "\nAssistant:"
+        prompt_ids = torch.tensor(self.tok.encode(prompt), dtype=torch.long)
+        total = len(prompt_ids) + length
+        ids, _conf = sample_trajectory(
+            self.model, total, self.tok.mask_id, self.tok.eos_id,
+            steps=steps, temperature=temperature, top_p=top_p, seed=seed,
+            prompt_ids=prompt_ids, device=self.device)
+        return self.tok.decode(ids.tolist()[len(prompt_ids):])
 
     @property
     def n_params(self):

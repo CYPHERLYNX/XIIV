@@ -33,16 +33,16 @@
   <g font-family="'Segoe UI', Arial, sans-serif">
     <line x1="700" y1="360" x2="1140" y2="360" stroke="#2a323c" stroke-width="2"/>
     <line x1="700" y1="110" x2="700" y2="360" stroke="#2a323c" stroke-width="2"/>
-    <!-- bar: 19.4 of 32 max -->
-    <rect x="830" y="208" width="110" height="152" fill="#8a5a4c" stroke="#a37d6e"/>
-    <text x="885" y="198" text-anchor="middle" font-size="15" font-weight="700" fill="#e6ebf2">19.4 tok/s</text>
+    <!-- bar: 19.4 of 60 max -->
+    <rect x="830" y="279" width="110" height="81" fill="#8a5a4c" stroke="#a37d6e"/>
+    <text x="885" y="269" text-anchor="middle" font-size="15" font-weight="700" fill="#e6ebf2">19.4 tok/s</text>
     <text x="885" y="382" text-anchor="middle" font-size="13" fill="#8b98ab">measured</text>
-    <!-- gate line at 25 -->
-    <line x1="700" y1="165" x2="1140" y2="165" stroke="#c3ccd9" stroke-width="2" stroke-dasharray="8,6"/>
-    <text x="1150" y="160" text-anchor="end" font-size="13" fill="#c3ccd9">G7 gate: 25 tok/s</text>
-    <text x="885" y="150" text-anchor="middle" font-size="13" font-weight="600" fill="#d08a7a">FAILED — not waived</text>
-    <text x="920" y="300" font-size="12" fill="#7d8ca3">6.6 s · 16 forward passes</text>
-    <text x="920" y="320" font-size="12" fill="#7d8ca3">peak RSS 400.2 MB</text>
+    <!-- gate line at 50 -->
+    <line x1="700" y1="152" x2="1140" y2="152" stroke="#c3ccd9" stroke-width="2" stroke-dasharray="8,6"/>
+    <text x="1150" y="147" text-anchor="end" font-size="13" fill="#c3ccd9">G7 gate: 50 tok/s</text>
+    <text x="885" y="137" text-anchor="middle" font-size="13" font-weight="600" fill="#d08a7a">FAILED — not waived</text>
+    <text x="960" y="330" font-size="12" fill="#7d8ca3">6.6 s · 16 forward passes</text>
+    <text x="960" y="350" font-size="12" fill="#7d8ca3">peak RSS 400.2 MB</text>
   </g>
 
   <text x="600" y="440" text-anchor="middle" font-family="'Segoe UI', Arial, sans-serif" font-size="13" fill="#7d8ca3">10,059,840 params (exact) · best val masked-NLL 3.4021 nats/token (upper bound — not AR perplexity) · 8/9 promotion gates · 27/27 test suites</text>

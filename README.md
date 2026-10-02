@@ -21,7 +21,7 @@ XIIV-10M is a 6-layer bidirectional transformer (d=320, 5 heads, SwiGLU FFN-864,
   <img src="assets/benchmarks.svg" alt="XIIV-10M measured benchmarks" width="100%">
 </p>
 
-Constraint scores are measured compliance on the benchmark suite in `benchmarks/`; throughput is wall-clock on 2 CPU threads. The masked-LM NLL (best validation 3.4021 nats/token) is an **upper bound** from the training objective — it is *not* comparable to autoregressive perplexity, and we don't present it as such. Promotion gates: **8/9 pass** — G7 (throughput) is recorded as **FAILED** at 19.4 tok/s against a 25 tok/s bar, not waived. If you need raw speed at this size, an autoregressive model is the better tool; diffusion's advantage is parallelism and infilling.
+Constraint scores are measured compliance on the benchmark suite in `benchmarks/`; throughput is wall-clock on 2 CPU threads. The masked-LM NLL (best validation 3.4021 nats/token) is an **upper bound** from the training objective — it is *not* comparable to autoregressive perplexity, and we don't present it as such. Promotion gates: **8/9 pass** — G7 (throughput) is recorded as **FAILED** at 19.4 tok/s against a 50 tok/s bar, not waived. If you need raw speed at this size, an autoregressive model is the better tool; diffusion's advantage is parallelism and infilling.
 
 ## Get started
 

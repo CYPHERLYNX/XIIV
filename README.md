@@ -23,6 +23,8 @@ XIIV-10M is a 6-layer bidirectional transformer (d=320, 5 heads, SwiGLU FFN-864,
 
 Constraint scores are measured compliance on the benchmark suite in `benchmarks/`; throughput is wall-clock on 2 CPU threads. The masked-LM NLL (best validation 3.4021 nats/token) is an **upper bound** from the training objective — it is *not* comparable to autoregressive perplexity, and we don't present it as such. Promotion gates: **8/9 pass** — G7 (throughput) is recorded as **FAILED** at 19.4 tok/s against a 50 tok/s bar, not waived. If you need raw speed at this size, an autoregressive model is the better tool; diffusion's advantage is parallelism and infilling.
 
+The **52.5M model** (d=576, L=12, h=9 — 52,508,736 params, same objective, trained 5,000 steps / 20.48M tokens on 2 CPU threads) completed 2026-10-02 and ships in `weights_52m/` (`xiiv-52m.safetensors`, 210 MB fp32). Best held-out masked-NLL bound **3.3414 nats/token** (train-log eval, step 4,500; step-5,000 eval 3.3473; independent post-export eval on 64 batches: 3.34) — 0.06 nats better than the 10M's 3.4021, a modest gain on a domain-tiny budget. Generation on this box: **20.0 tok/s** at 16 denoise steps (37.9 tok/s at 8 steps), 814 MB peak RSS. G7 (cpu_tok_s≥50) fails at this size too (20.0 < 50). Test suite: **31/31 pass** (incl. the 19/19 structural constraint tests). Load it with `XIIV("weights_52m/xiiv-52m.safetensors")`.
+
 ## Get started
 
 ```bash
@@ -96,7 +98,7 @@ XIIV is built by CYPHERLYNX. If you use it in your work, please cite:
 
 ## Status and limitations
 
-**Experimental research model (v0.1).** It trains and runs end to end, its constraint machinery measures 1.000, and its numbers are reported honestly — including the gate it failed. A **52.5M-parameter XIIV** (d=576, 12 layers, 9 heads — 52,508,736 params, same objective and constraints) is currently training; this repo will be updated with its weights when it completes. The 10M stays as the CPU-friendly reference.
+**Experimental research model (v0.1).** It trains and runs end to end, its constraint machinery measures 1.000, and its numbers are reported honestly — including the gates it failed. The **52.5M-parameter XIIV** (d=576, 12 layers, 9 heads — 52,508,736 params, same objective and constraints) completed training 2026-10-02 (~20:29 IST, 5,000 steps, 20.48M tokens) and its weights now ship in `weights_52m/`. The 10M stays as the CPU-friendly reference.
 
 - Trained on TinyStories (simple children's-story English). It writes simple stories; it does not do math, code, or factual Q&A reliably. Sample outputs above are typical, not cherry-picked.
 - Diffusion needs several full-sequence forward passes per generation — slower per token than AR at the same size (see the failed G7); the win is parallelism + infilling, not throughput.

@@ -1,0 +1,27 @@
+{
+  "params": 52508736,
+  "params_M": 52.51,
+  "weights_file_MB": 210.0,
+  "weights_dtype": "torch.float32",
+  "val_nll_bound_nats_per_token": 3.34,
+  "val_note": "upper bound on true sequence NLL from the masked objective; NOT comparable to autoregressive perplexity",
+  "val_batches": 64,
+  "batch_size": 32,
+  "threads": 2,
+  "gen_length": 128,
+  "throughput": {
+    "steps_8": {
+      "tok_s": 37.9,
+      "seconds": 3.38,
+      "tokens": 128
+    },
+    "steps_16": {
+      "tok_s": 20.0,
+      "seconds": 6.38,
+      "tokens": 128
+    }
+  },
+  "peak_rss_MB": 814.2,
+  "baseline_rss_MB": 220.3,
+  "cpu": "AMD EPYC 9D25 126-Core Processor"
+}

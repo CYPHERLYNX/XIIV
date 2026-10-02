@@ -2,8 +2,9 @@
 
 ## Model details
 - **Name:** XIIV v0.1 — a tiny masked-diffusion language model
-- **Parameters:** 10,059,840 (exact, `count_parameters()`); a 52,508,736-param
-  XIIV run is training (see Status)
+- **Parameters:** 10,059,840 (exact, `count_parameters()`); the 52,508,736-param
+  XIIV run completed 2026-10-02 (see Status). Both are masked-diffusion
+  transformers; the 52.5M is d=576, L=12, h=9, SwiGLU-1536, same vocab/canvas
 - **Architecture:** bidirectional transformer, d=320, L=6, h=5, SwiGLU-864,
   RMSNorm, RoPE, tied embeddings, no causal mask
 - **Tokenizer:** byte-level BPE, vocab 8,192, trained on the TinyStories corpus
@@ -58,6 +59,27 @@ GPT-4/Opus-class; it is a different *kind* of machine at a tiny budget.
   ~2.6x below the declared CPU-throughput bar, so promotion is **blocked**
   pending re-review of that bar. All other gates pass.
 
+## Metrics — XIIV-52.5M (measured, this machine, completed 2026-10-02 ~20:29 IST)
+- Best held-out masked NLL bound: **3.3414 nats/token** (train-log eval at
+  step 4,500 of 5,000; final step-5,000 eval 3.3473). Independent post-export
+  eval (`python -m xiiv.evaluate`, 64 held-out batches) on the exported
+  weights: **3.34** — an upper bound on sequence NLL, **not comparable to
+  AR perplexity**
+- 10M vs 52.5M on the same masked objective: 3.4021 → 3.3414 (0.06 nats).
+  A modest gain; 20.48M TinyStories tokens is a tiny budget for 52.5M
+  parameters — expect repetition and limited vocabulary
+- Exported weights `weights_52m/xiiv-52m.safetensors` (210 MB, fp32) load
+  strict via the API (`XIIV("weights_52m/xiiv-52m.safetensors")`); a
+  generation smoke test produced coherent masked-span infill
+- CPU generation (2 threads, parallel de-masking): 128 tokens in 6.38 s =
+  **20.0 tok/s** at 16 denoise steps; **37.9 tok/s** at 8 steps.
+  Peak RSS 814 MB
+- Against the declared G7 bar (`cpu_tok_s>=50`): 20.0 < 50 — the bar fails
+  at this size too; promotion stays **blocked** on G7, not waived
+- Test suite: **31/31 pass** on this code+weights snapshot, including the
+  19/19 structural constraint tests (required/forbidden/locked/exact-length,
+  50 seeds per constraint type) and 8/8 reasoning tests
+
 ## Limitations (honest)
 - 10M params on TinyStories: no broad knowledge, no reasoning benchmarks.
 - Masked-NLL is not comparable to autoregressive perplexity; do not rank them.
@@ -78,10 +100,16 @@ GPT-4/Opus-class; it is a different *kind* of machine at a tiny budget.
   all four satisfaction=1.000; efficiency bench 19.4 tok/s, infill
   accuracy 0.0938; **8/9 promotion gates pass — G7 (cpu_tok_s>=50) fails
   (19.4), so promotion is blocked pending re-review of that bar**.
-- XIIV-52.5M (d=576, L=12, h=9, ffn=1536; 52,508,736 params): training on
-  this CPU box, ~step 150/5,000, loss descending (6.32 → 5.84). Too slow
-  to finish today on 2 CPUs; the GPU kit (`train_xiiv_gpu.ps1`,
-  `requirements-gpu.txt`) is the realistic path for it.
+- XIIV-52.5M (d=576, L=12, h=9, ffn=1536; 52,508,736 params): **completed**
+  2026-10-02 ~20:29 IST — 5,000/5,000 steps, 20.48M tokens seen, 2 CPU
+  threads, bf16. Survived 6 VM reboots mid-run; checkpoints held every time
+  (resumed from newest ckpt each time, RNG state included). Best val NLL
+  3.3414 (step 4,500); step-4,500 checkpoint was pruned by retention before
+  export, so the exported weights are the step-5,000 final (val 3.3473) —
+  0.006 nats off the run's best, recorded honestly. Post-export
+  `xiiv.evaluate`: NLL bound 3.34, 20.0 tok/s @16 steps (37.9 @8 steps).
+  Weights: `weights_52m/xiiv-52m.safetensors` (210 MB fp32). G7 bar (50
+  tok/s) not met at this size; promotion remains blocked on G7.
 - Publication to `CYPHERLYNX/XIIV` pending: benchmarks, gates, and power
   review still to run. Nothing ships until gates pass or it is explicitly
   marked an experimental prerelease. Repo will be **private**, per the
@@ -91,6 +119,8 @@ GPT-4/Opus-class; it is a different *kind* of machine at a tiny budget.
 - Frozen run config hash: `3497b90c82b3fe5d`
 - Data snapshot: `data/data_provenance.json` (SHA256 per file)
 - Training log: `checkpoints/train_log.jsonl` (JSONL, resumable)
-- 52.5M run: `checkpoints_50m/`, log `train_50m.log`
+- 52.5M run: `checkpoints_50m/` (log `checkpoints_50m/train_log.jsonl`,
+  resume logs `logs/train_50m_resume*.log`) — completed 2026-10-02, exported
+  `weights_52m/`
 - Promotion gates (declared before training finished): `PROMOTION_GATES.md`
 - Prior-art boundaries: `NOVELTY.md` (no overclaims on diffusion/infilling)

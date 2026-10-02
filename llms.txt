@@ -70,6 +70,8 @@ TRAINING.md. GPU (RTX 4050): `.\train_xiiv_gpu.ps1`.
   autoregressive perplexity; never compare numerically
 - promotion gates 8/9 — G7 (throughput) FAILED at 19.4 tok/s vs 25 required;
   recorded as failed, not waived
-- 27/27 test suites (28 with test_api.py); outputs are rough (TinyStories
-  English); a 52.5M-param XIIV is training and will update this repo
+- 31/31 test suites; outputs are rough (TinyStories
+  English); the 52.5M-param XIIV (52,508,736 params, best val 3.3414) completed
+  2026-10-02 — weights ship as the xiiv-52m-v0.1 release asset
+  (`weights_52m/xiiv-52m-fp16.safetensors`, fp16, 105 MB)
 - no emojis anywhere in the repo (project rule)

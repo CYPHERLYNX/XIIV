@@ -1,23 +1,25 @@
 # XIIV-52.5M weights
 
-`xiiv-52m.safetensors` (210 MB, fp32, safetensors) — the finished 52,508,736-param
-model, exported 2026-10-02 from the final training checkpoint
-(`checkpoints_50m/ckpt_5000.pt`, step 5,000).
+`xiiv-52m-fp16.safetensors` (105 MB, fp16, safetensors) — the finished 52,508,736-param
+model, exported 2026-10-03 from the best training checkpoint
+(`checkpoints_50m/best.pt`, step 4,500, best val NLL 3.3414). fp16 vs fp32 max abs
+diff on embeddings: 0.0153 (ordinary quantization noise); inference verified
+(generate + infill) on this file.
 
-- SHA256: `0a6ad8533740bc381e5efe76542c4ef7da73d1913bc486ecad43909c47d5b101`
-- Load: `from xiiv import XIIV; m = XIIV("weights_52m/xiiv-52m.safetensors")`
+- Load: `from xiiv import XIIV; m = XIIV("weights_52m/xiiv-52m-fp16.safetensors")`
   (resolves `config.json` + `tokenizer.json` from this directory)
+- Get it: download from the [xiiv-52m-v0.1 release](https://github.com/CYPHERLYNX/XIIV/releases/tag/xiiv-52m-v0.1)
+  and place it in this directory.
 - Reproduce the export: `python scripts/export_weights.py --ckpt
-  checkpoints_50m/ckpt_5000.pt --out-dir weights_52m` then rename
-  `xiiv.safetensors` → `xiiv-52m.safetensors`
+  checkpoints_50m/best.pt --out-dir weights_52m --fp16` then rename
+  `xiiv.safetensors` → `xiiv-52m-fp16.safetensors`
 
 ## Why the binary is not in this commit
 
-GitHub rejects plain-git files over 100 MB. The 210 MB weight file ships via
-a GitHub Release asset (private repo → private asset) or Git LFS — whichever
-upload lands first. Until then, the weights are fully reproducible from the
-retained final checkpoint with the command above, and the measured numbers
-below are from this exact file.
+GitHub rejects plain-git files over 100 MB. The 105 MB weight file ships as a
+GitHub Release asset (private repo → private asset). Until downloaded, the weights
+are fully reproducible from the retained best checkpoint with the command above,
+and the measured numbers below are from this exact file.
 
 ## Measured on this file (2026-10-02, AMD EPYC, 2 CPU threads)
 

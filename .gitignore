@@ -37,5 +37,6 @@ BIG_LAB_PLAYBOOK.md
 AUDIT_FIXES.md
 REVIEW_CODE_SECURITY.md
 RUN_LEDGER.md
-# 52.5M weights (210MB) ship via GitHub Release asset, not plain git (>100MB limit)
+# 52.5M weights (105MB fp16 / 210MB fp32) ship via GitHub Release asset, not plain git (>100MB limit)
 weights_52m/xiiv-52m.safetensors
+weights_52m/xiiv-52m-fp16.safetensors

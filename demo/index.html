@@ -3,12 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>BRAN — masked-diffusion LM demo</title>
+<title>XIIV — Guarantees, Not Hopes</title>
 <style>
   :root {
     --bg: #0b0b0d; --panel: #121216; --panel2: #17171c;
     --line: #26262e; --txt: #e8e8ea; --dim: #9a9aa3; --faint: #5c5c66;
-    --accent: #e8a33d; --accent-dim: #7a5a26; --mask: #2a2a33;
+    --accent: #7cc4ff; --accent-dim: #3a5a78;
+    --ok: #4ade80; --warn: #fbbf24;
     --mono: "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
     --sans: -apple-system, "Segoe UI", Inter, Helvetica, Arial, sans-serif;
   }
@@ -16,12 +17,11 @@
   body { margin: 0; background: var(--bg); color: var(--txt);
          font-family: var(--sans); -webkit-font-smoothing: antialiased; }
   .wrap { max-width: 860px; margin: 0 auto; padding: 40px 24px 80px; }
-  header { margin-bottom: 28px; }
-  h1 { font-size: 30px; letter-spacing: 0.35em; margin: 0 0 6px; font-weight: 700; }
+  header { margin-bottom: 8px; }
+  h1 { font-size: 30px; letter-spacing: 0.18em; margin: 0 0 8px; font-weight: 700; }
   h1 span { color: var(--accent); }
-  .sub { color: var(--dim); font-size: 14px; line-height: 1.6; max-width: 640px; }
-  .sub code { font-family: var(--mono); font-size: 12.5px; color: var(--txt);
-              background: var(--panel2); padding: 1px 6px; border-radius: 4px; }
+  .sub { color: var(--dim); font-size: 14px; line-height: 1.65; max-width: 660px; }
+  .sub b { color: var(--txt); }
   .tabs { display: flex; gap: 8px; margin: 26px 0 18px; }
   .tab { background: var(--panel); border: 1px solid var(--line); color: var(--dim);
          padding: 9px 18px; border-radius: 8px; cursor: pointer; font-size: 14px; }
@@ -30,155 +30,190 @@
   .card { background: var(--panel); border: 1px solid var(--line);
           border-radius: 12px; padding: 20px; margin-bottom: 16px; }
   label { display: block; font-size: 12px; color: var(--dim);
-          text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 6px; }
-  textarea, input[type=text], input[type=number] {
+          text-transform: uppercase; letter-spacing: 0.08em; margin: 14px 0 6px; }
+  label:first-child { margin-top: 0; }
+  textarea, input[type=text] {
     width: 100%; background: var(--bg); border: 1px solid var(--line);
     color: var(--txt); border-radius: 8px; padding: 10px 12px;
-    font-family: var(--mono); font-size: 14px; }
+    font-family: var(--sans); font-size: 14px; }
   textarea:focus, input:focus { outline: none; border-color: var(--accent-dim); }
-  textarea { min-height: 76px; resize: vertical; }
-  .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
-          margin-top: 14px; }
-  .grid input { width: 100%; }
-  .row { display: flex; gap: 10px; margin-top: 16px; align-items: center; }
-  button.go { background: var(--accent); color: #141414; border: 0;
+  textarea { min-height: 70px; resize: vertical; }
+  .row { display: flex; gap: 12px; margin-top: 16px; align-items: center;
+         flex-wrap: wrap; }
+  button.go { background: var(--accent); color: #0a141d; border: 0;
               padding: 11px 26px; border-radius: 8px; font-size: 14px;
               font-weight: 700; cursor: pointer; }
   button.go:disabled { opacity: 0.45; cursor: wait; }
   .hint { font-size: 12.5px; color: var(--faint); }
-  #out { font-family: var(--mono); font-size: 15px; line-height: 1.75;
-         white-space: pre-wrap; word-break: break-word; min-height: 120px; }
-  #out .m { background: var(--mask); color: var(--faint); border-radius: 4px;
-            padding: 0 4px; }
-  #out .new { color: var(--accent); animation: pop 0.5s ease; }
-  @keyframes pop { from { background: #3a2c14; } to { background: transparent; } }
-  .steps { display: flex; gap: 6px; margin-top: 14px; flex-wrap: wrap; }
-  .stepdot { width: 26px; height: 8px; border-radius: 4px; background: var(--line); }
-  .stepdot.done { background: var(--accent); }
-  .meta { display: flex; gap: 18px; margin-top: 12px; font-size: 12.5px;
-          color: var(--faint); font-family: var(--mono); }
-  .err { color: #e06c5c; font-size: 13px; margin-top: 10px; font-family: var(--mono); }
+  .tog { display: flex; align-items: center; gap: 8px; font-size: 13.5px;
+         color: var(--dim); cursor: pointer; }
+  .tog input { accent-color: var(--accent); width: 16px; height: 16px; }
+  .out { font-size: 15px; line-height: 1.75; white-space: pre-wrap;
+         word-break: break-word; min-height: 90px; }
+  .badges { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+  .badge { font-size: 12.5px; padding: 5px 12px; border-radius: 20px;
+           border: 1px solid var(--line); color: var(--dim); }
+  .badge.ok { color: var(--ok); border-color: #1f4d2e; background: #0f1a12; }
+  .badge.no { color: var(--warn); border-color: #4d3d1f; background: #1a150c; }
+  .badge .n { font-family: var(--mono); }
+  .src { font-size: 12.5px; color: var(--faint); margin-top: 10px; line-height: 1.6; }
+  .err { color: #e06c5c; font-size: 13px; margin-top: 10px; }
+  .spin { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--line);
+          border-top-color: var(--accent); border-radius: 50%;
+          animation: sp 0.8s linear infinite; vertical-align: -2px; margin-right: 8px; }
+  @keyframes sp { to { transform: rotate(360deg); } }
   footer { margin-top: 40px; color: var(--faint); font-size: 12.5px; line-height: 1.7; }
-  footer a { color: var(--dim); }
+  footer code { font-family: var(--mono); color: var(--dim); }
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
-    <h1>BRAN</h1>
-    <p class="sub">Named for the Raven King — the smartest bird, the darkest omen.
-    A tiny <b>masked-diffusion</b> language model that doesn't write left-to-right.
-    Every generation begins as pure noise, a blank field
-    of <code>[MASK]</code> tokens, and text crystallizes out of it as the model
-    unmasks the most confident tokens in parallel, step by step. Watch it happen
-    below, or give it <code>&lt;mask&gt;</code> spans to infill.</p>
+    <h1><span>XIIV</span></h1>
+    <p class="sub">A diffusion language model with <b>guarantee-native generation</b>:
+    output contracts — facts that must appear, content that must not, text locked
+    byte-exact — are <b>enforced by the sampling mathematics itself</b>, then
+    machine-verified. Ask below, or declare a contract, and watch the model
+    prove its own output.</p>
   </header>
 
   <div class="tabs">
-    <button class="tab active" data-mode="generate">Generate</button>
-    <button class="tab" data-mode="infill">Infill</button>
+    <button class="tab active" data-tab="ask">Ask anything</button>
+    <button class="tab" data-tab="contract">Contract playground</button>
   </div>
 
-  <div class="card" id="panel-generate">
-    <label>Prompt (optional — empty starts from pure noise)</label>
-    <input type="text" id="prompt" placeholder="Once upon a time">
-  </div>
-  <div class="card" id="panel-infill" style="display:none">
-    <label>Text with &lt;mask&gt; markers</label>
-    <textarea id="infill-text">Lily found a <mask> in the garden. It was <mask> and soft.</textarea>
-  </div>
-
-  <div class="card">
-    <div class="grid">
-      <div><label>Length</label><input type="number" id="length" value="128" min="8" max="256"></div>
-      <div><label>Denoise steps</label><input type="number" id="steps" value="16" min="1" max="64"></div>
-      <div><label>Temperature</label><input type="number" id="temp" value="1.0" min="0.1" max="2" step="0.1"></div>
-      <div><label>Seed</label><input type="number" id="seed" value="7" min="0"></div>
+  <!-- ASK -->
+  <div id="tab-ask">
+    <div class="card">
+      <label>Question (knowledge: Wikipedia + current events, 2020–2026)</label>
+      <input type="text" id="q" placeholder="What is the capital of France?"
+             onkeydown="if(event.key==='Enter')doAsk()">
+      <div class="row">
+        <button class="go" id="b-ask" onclick="doAsk()">Ask ▸</button>
+        <label class="tog"><input type="checkbox" id="e-ask" checked>
+          Enforce facts structurally</label>
+        <span class="hint">Uncheck to see the standard approach: facts pasted into the
+        prompt and hoped for. Checked: facts anchored + required by the sampler.</span>
+      </div>
     </div>
-    <div class="row">
-      <button class="go" id="go">De-mask ▸</button>
-      <span class="hint" id="status">idle — runs locally, no network</span>
+    <div class="card" id="r-ask" style="display:none">
+      <div class="out" id="o-ask"></div>
+      <div class="badges" id="bd-ask"></div>
+      <div class="src" id="s-ask"></div>
+      <div class="err" id="e2-ask"></div>
     </div>
   </div>
 
-  <div class="card">
-    <div class="steps" id="stepdots"></div>
-    <div id="out" style="margin-top:12px"></div>
-    <div class="meta" id="meta"></div>
-    <div class="err" id="err"></div>
+  <!-- CONTRACT -->
+  <div id="tab-contract" style="display:none">
+    <div class="card">
+      <label>Task for the agent</label>
+      <input type="text" id="c-task" placeholder="Handle the customer request file.">
+      <label>Locked policy (anchored byte-exact — the model cannot touch it)</label>
+      <input type="text" id="c-pol" value="Ask first. Record each step.">
+      <label>Must include (comma-separated, single words)</label>
+      <input type="text" id="c-must" value="ask, step">
+      <label>Must never include</label>
+      <input type="text" id="c-never" value="cut">
+      <div class="row">
+        <button class="go" id="b-con" onclick="doContract()">Generate plan ▸</button>
+        <label class="tog"><input type="checkbox" id="e-con" checked>
+          Enforce contract</label>
+        <span class="hint">Unchecked: the contract is pasted as ordinary prompt text —
+        the standard, unenforced baseline.</span>
+      </div>
+    </div>
+    <div class="card" id="r-con" style="display:none">
+      <div class="out" id="o-con"></div>
+      <div class="badges" id="bd-con"></div>
+      <div class="err" id="e2-con"></div>
+    </div>
   </div>
 
   <footer>
-    10M params · bidirectional transformer · trained from scratch on TinyStories with a
-    masked-diffusion objective. Runs on CPU. Not comparable to autoregressive perplexity —
-    see the <a href="https://github.com/CYPHERLYNX/bran">README</a> for honest benchmarks.
+    52.5M params · masked-diffusion transformer · trained from scratch ·
+    sampler enforces required / forbidden / anchored / locked constraints ·
+    every output machine-verified by <code>check_constraints()</code>.
+    Runs on CPU — no network calls.
   </footer>
 </div>
 <script>
 const $ = id => document.getElementById(id);
-let mode = "generate";
 document.querySelectorAll(".tab").forEach(t => t.onclick = () => {
   document.querySelectorAll(".tab").forEach(x => x.classList.remove("active"));
-  t.classList.add("active"); mode = t.dataset.mode;
-  $("panel-generate").style.display = mode === "generate" ? "" : "none";
-  $("panel-infill").style.display = mode === "infill" ? "" : "none";
+  t.classList.add("active");
+  $("tab-ask").style.display = t.dataset.tab === "ask" ? "" : "none";
+  $("tab-contract").style.display = t.dataset.tab === "contract" ? "" : "none";
 });
-
-// Render one trajectory frame: diff against previous to highlight new tokens.
-let prevTokens = null;
-function renderFrame(text, stepIdx, nSteps) {
-  const dots = $("stepdots"); dots.innerHTML = "";
-  for (let i = 0; i < nSteps; i++) {
-    const d = document.createElement("div");
-    d.className = "stepdot" + (i <= stepIdx ? " done" : "");
-    dots.appendChild(d);
-  }
-  // We don't have token ids in the text frames, so highlight by simple diff:
-  // wrap the whole frame; newly-appeared words get the accent class.
-  const cur = text.split(/(\s+)/);
-  const prev = prevTokens ? prevTokens : [];
-  const html = cur.map((w, i) =>
-    (prev[i] !== w && /\S/.test(w)) ? `<span class="new">${esc(w)}</span>` : esc(w)
-  ).join("");
-  $("out").innerHTML = html;
-  prevTokens = cur;
+async function post(url, data) {
+  const r = await fetch(url, {method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify(data)});
+  return r.json();
 }
-function esc(s){ return s.replace(/[&<>"]/g, c =>
-  ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+function badge(ok, html) {
+  return `<span class="badge ${ok ? "ok" : "no"}">${ok ? "✓" : "✗"} ${html}</span>`;
+}
 
-$("go").onclick = async () => {
-  const btn = $("go"); btn.disabled = true; $("err").textContent = "";
-  prevTokens = null;
-  const body = {
-    length: +$("length").value, steps: +$("steps").value,
-    temperature: +$("temp").value, seed: +$("seed").value,
-    prompt: $("prompt").value,
-  };
-  const url = mode === "generate" ? "/api/generate" : "/api/infill";
-  if (mode === "infill") body.text = $("infill-text").value;
-  $("status").textContent = "de-masking…";
-  const t0 = performance.now();
+async function doAsk() {
+  const btn = $("b-ask"); btn.disabled = true;
+  $("e2-ask").textContent = "";
+  const box = $("r-ask"); box.style.display = "";
+  $("o-ask").innerHTML = '<span class="spin"></span>Retrieving facts and generating…';
+  $("bd-ask").innerHTML = ""; $("s-ask").textContent = "";
+  const enforce = $("e-ask").checked;
   try {
-    const r = await fetch(url, {method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify(body)});
-    const j = await r.json();
+    const j = await post("/api/ask",
+      {question: $("q").value, enforce});
     if (j.error) throw new Error(j.error);
-    const frames = j.trajectory || [j.text];
-    for (let i = 0; i < frames.length; i++) {
-      renderFrame(frames[i], i, frames.length);
-      await new Promise(r => setTimeout(r, 320));
-    }
-    const dt = ((performance.now() - t0) / 1000).toFixed(1);
-    $("meta").textContent =
-      `${j.tok_s} tok/s · ${j.seconds}s model time · ${frames.length} steps · seed ${body.seed}`;
-    $("status").textContent = `done in ${dt}s`;
+    $("o-ask").textContent = j.answer;
+    let b = badge(j.guaranteed,
+      j.guaranteed ? "verified — constraints hold"
+                   : "not enforced (baseline)");
+    if (j.facts && j.facts.length)
+      b += badge(true, `<span class="n">${j.facts.length}</span> fact(s) retrieved`);
+    if (j.key_terms && j.key_terms.length)
+      b += badge(true, `<span class="n">${j.key_terms.length}</span> key term(s) required`);
+    $("bd-ask").innerHTML = b;
+    $("s-ask").textContent =
+      "Sources: " + (j.sources || []).join(" · ");
   } catch (e) {
-    $("err").textContent = "error: " + e.message;
-    $("status").textContent = "idle";
+    $("o-ask").textContent = "";
+    $("e2-ask").textContent =
+      "Could not generate an answer just now — please try again.";
   }
   btn.disabled = false;
-};
+}
+
+async function doContract() {
+  const btn = $("b-con"); btn.disabled = true;
+  $("e2-con").textContent = "";
+  const box = $("r-con"); box.style.display = "";
+  $("o-con").innerHTML = '<span class="spin"></span>Generating under contract…';
+  $("bd-con").innerHTML = "";
+  const split = s => s.split(",").map(x => x.trim()).filter(Boolean);
+  try {
+    const j = await post("/api/contract", {
+      task: $("c-task").value,
+      policy: $("c-pol").value,
+      must_do: split($("c-must").value),
+      never_do: split($("c-never").value),
+      enforce: $("e-con").checked });
+    if (j.error) throw new Error(j.error);
+    $("o-con").textContent = j.plan;
+    const c = j.check || {};
+    $("bd-con").innerHTML =
+      badge(j.guaranteed, j.guaranteed ? "contract verified" : "not enforced (baseline)") +
+      badge(c.required_present, "required terms present") +
+      badge(c.forbidden_absent, "forbidden terms absent") +
+      badge(c.anchors_intact, "policy byte-exact");
+  } catch (e) {
+    $("o-con").textContent = "";
+    $("e2-con").textContent =
+      "Could not generate a plan just now — please try again.";
+  }
+  btn.disabled = false;
+}
 </script>
 </body>
 </html>

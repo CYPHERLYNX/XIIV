@@ -42,12 +42,11 @@ def key_terms(facts, tokenizer, max_terms=8, single_token=False):
     """Extract constrainable key content terms from fact sentences.
 
     Keeps capitalized words (names/entities), numbers/years, and long
-    content words; drops stopwords. Returns token-id lists, one per
-    term. With ``single_token=True``, only terms that encode to exactly
-    one token are kept — required for word-level guarantees, since the
-    sampler enforces individual token ids (a multi-token word's tokens
-    would be placed independently and scatter).
-    Deterministic: first-appearance order.
+    content words; drops stopwords. Returns term strings, deterministic
+    first-appearance order. With ``single_token=True``, only terms that
+    encode to exactly one token are kept — required for word-level
+    guarantees, since the sampler enforces individual token ids (a
+    multi-token word's tokens would be placed independently and scatter).
     """
     cands = []
     for fact in facts:
@@ -71,7 +70,7 @@ def key_terms(facts, tokenizer, max_terms=8, single_token=False):
             continue
         if not single_token and not (1 <= len(ids) <= 4):
             continue
-        terms.append(ids)
+        terms.append(c)
         if len(terms) >= max_terms:
             break
     return terms
@@ -122,25 +121,22 @@ def answer(question, model, steps=16, seed=7, temperature=1.0, top_p=0.95,
     q_ids = tok.encode("Question: " + question.strip() + "\nAnswer:")
     q_ids = q_ids[:MAX_QUESTION_TOKENS + 8]
     prompt_ids = torch.tensor(q_ids, dtype=torch.long)
-    a0 = len(q_ids)  # answer starts here
 
-    constraints = None
+    constraints, total = None, TOTAL_LENGTH
     terms = []
     if enforce:
-        # Anchor the top fact sentence verbatim at the answer start.
+        # The top fact sentence is locked verbatim at the answer start;
+        # single-token key terms from the remaining facts are required.
+        # Built on xiiv.contracts.Contract — the unified guarantee path.
+        from ..contracts import Contract
         fact0 = re.split(r"(?<=[.!?])\s+", facts[0]["text"])[0]
-        f0_ids = [i for i in tok.encode(fact0)
-                  if i not in (tok.mask_id, tok.eos_id)][:30]
-        anchors = {a0 + p: t for p, t in enumerate(f0_ids)}
-        # Require single-token key terms absent from the anchored fact.
-        f0_low = tok.decode(f0_ids).lower()
+        f0_low = fact0.lower()
         terms = [t for t in key_terms([f["text"] for f in facts], tok,
                                       single_token=True)
-                 if tok.decode(t).lower() not in f0_low]
-        required = sorted({t[0] for t in terms})[:MAX_REQUIRED_TOKENS]
-        constraints = {"anchors": anchors}
-        if required:
-            constraints["required_ids"] = required
+                 if t.lower() not in f0_low]
+        c = Contract().lock(fact0).require(*terms)
+        c.exact_length(TOTAL_LENGTH)
+        constraints, total = c.compile(tok, prompt_len=len(q_ids))
     else:
         ev_text = " ".join(f["text"] for f in facts)
         prompt_text = ("Facts: " + ev_text + "\nQuestion: "
@@ -153,7 +149,7 @@ def answer(question, model, steps=16, seed=7, temperature=1.0, top_p=0.95,
     guaranteed = constraints is not None
     try:
         ids, _ = sample_trajectory(
-            model.model, TOTAL_LENGTH, tok.mask_id, tok.eos_id,
+            model.model, total, tok.mask_id, tok.eos_id,
             steps=steps, temperature=temperature, top_p=top_p, seed=seed,
             prompt_ids=prompt_ids, constraints=constraints,
             device=model.device)
@@ -162,13 +158,13 @@ def answer(question, model, steps=16, seed=7, temperature=1.0, top_p=0.95,
         guaranteed = False
         constraints = None
         ids, _ = sample_trajectory(
-            model.model, TOTAL_LENGTH, tok.mask_id, tok.eos_id,
+            model.model, total, tok.mask_id, tok.eos_id,
             steps=steps, temperature=temperature, top_p=top_p, seed=seed,
             prompt_ids=prompt_ids, device=model.device)
     if constraints:
-        check = check_constraints(ids, constraints, tok.mask_id)
-        guaranteed = guaranteed and check["required_present"] \
-            and check["anchors_intact"]
+        from ..contracts import Contract as _C
+        check = _C.verify(ids, constraints, tok.mask_id)
+        guaranteed = guaranteed and _C.holds(check)
     gen_ids = ids.tolist()[len(prompt_ids):]
     return {"answer": tok.decode(gen_ids),
             "facts": [f["text"] for f in facts],

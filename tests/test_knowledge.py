@@ -37,12 +37,12 @@ def model():
 def test_key_terms_keep_entities_years_content_words(tok):
     terms = pipeline.key_terms(
         ["The Eiffel Tower was completed in 1889 in Paris."], tok)
-    joined = " ".join(tok.decode(t) for t in terms)
+    joined = " ".join(terms)
     assert "Paris" in joined
     assert "1889" in joined
     assert "Eiffel" in joined or "Tower" in joined
     for t in terms:
-        assert 1 <= len(t) <= 4
+        assert 1 <= len(tok.encode(t)) <= 4
 
 
 def test_key_terms_single_token_mode(tok):
@@ -50,13 +50,13 @@ def test_key_terms_single_token_mode(tok):
         ["The Eiffel Tower was completed in 1889 in Paris."], tok,
         single_token=True)
     for t in terms:
-        assert len(t) == 1
+        assert len(tok.encode(t)) == 1
 
 
 def test_key_terms_drop_stopwords_everywhere(tok):
     terms = pipeline.key_terms(["The cat sat on the mat."], tok)
     for t in terms:
-        assert tok.decode(t).lower() not in pipeline._STOPWORDS
+        assert t.lower() not in pipeline._STOPWORDS
 
 
 def test_key_terms_deterministic(tok):
@@ -100,10 +100,10 @@ def test_ask_enforces_key_terms(model, monkeypatch, tok):
     assert out["answer"].startswith("Paris is the capital of France.")
     gen = out["answer"].lower()
     # every required single-token term appears in the generated answer
-    for term_ids in out["key_terms"]:
-        assert len(term_ids) == 1
-        assert tok.decode(term_ids).lower() in gen, \
-            f"required term {tok.decode(term_ids)!r} missing from answer"
+    for term in out["key_terms"]:
+        assert len(tok.encode(term)) == 1
+        assert term.lower() in gen, \
+            f"required term {term!r} missing from answer"
 
 
 def test_ask_baseline_is_prompt_only(model, monkeypatch):

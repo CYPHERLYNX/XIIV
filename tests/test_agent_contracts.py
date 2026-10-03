@@ -33,9 +33,12 @@ def test_compile_rejects_multi_token_terms(tok):
 
 
 def test_compile_accepts_single_token_terms(tok):
-    _, c = compile_contract(tok, policy="Ask first.",
-                            must_do=["ask", "step"], never_do=["cut"])
-    assert c["required_ids"] and c["forbidden_ids"]
+    c = compile_contract(tok, policy="Ask first.",
+                         must_do=["ask", "step"], never_do=["cut"])
+    constraints, total = c.compile(tok, prompt_len=10)
+    assert constraints["required_ids"] and constraints["forbidden_ids"]
+    assert constraints["anchors"]
+    assert total == 128
 
 
 def test_compile_rejects_contradiction(tok):

@@ -37,7 +37,7 @@ def term_recall(answer, terms, tok):
     if not terms:
         return None
     low = answer.lower()
-    hit = sum(1 for t in terms if tok.decode(t).lower() in low)
+    hit = sum(1 for t in terms if t.lower() in low)
     return hit / len(terms)
 
 

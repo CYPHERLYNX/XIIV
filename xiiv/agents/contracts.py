@@ -1,71 +1,38 @@
-"""Agent behavior contracts compiled to sampler constraints.
+"""Agent behavior contracts: one application of the guarantee architecture.
 
-A contract declares, for an agent's action plan:
+Built on xiiv.contracts.Contract — the unified guarantee path. A
+contract declares, for an agent's action plan:
 - ``policy``: locked preamble, anchored byte-exact at the plan start.
-- ``must_do``: terms that MUST appear (required_ids — the sampler cannot
-  finish without placing each).
-- ``never_do``: terms that MUST NOT appear (forbidden_ids — logits at
-  -inf every step).
+- ``must_do``: terms that MUST appear (required_ids).
+- ``never_do``: terms that MUST NOT appear (forbidden_ids).
 
-All terms must be single tokens: the sampler enforces token ids, and a
-multi-token word's tokens would scatter instead of forming the word.
-``compile_contract`` validates this and raises otherwise.
-
-This is the trust-layer primitive for the agentic era: the same
-machinery as faithful text generation, applied to agent action plans.
-Demonstration scope — a proof of the mechanism, not a production agent.
+This module is an application demo of the core (xiiv/diffusion.py's
+DenoisingState), not the core itself.
 """
 import torch
 
-from ..diffusion import check_constraints, sample_trajectory
+from ..contracts import Contract, ContractError
+from ..diffusion import sample_trajectory
 
 TOTAL_LENGTH = 128
-MAX_POLICY_TOKENS = 40
 
-
-class ContractError(ValueError):
-    """Unsatisfiable or malformed contract."""
+__all__ = ["ContractError", "compile_contract", "generate_plan"]
 
 
 def compile_contract(tokenizer, policy="", must_do=(), never_do=()):
-    """Compile a behavior contract to sampler constraints.
+    """Compile to a Contract. Raises ContractError on malformed input.
 
-    Returns (prompt_prefix_ids, constraints). Raises ContractError if a
-    term is not a single token or the policy is too long.
+    Validation is eager: multi-token require/forbid terms raise here,
+    not at generation time.
     """
-    p_ids = [i for i in tokenizer.encode(policy)
-             if i not in (tokenizer.mask_id, tokenizer.eos_id)]
-    if len(p_ids) > MAX_POLICY_TOKENS:
-        raise ContractError(
-            f"policy too long: {len(p_ids)} > {MAX_POLICY_TOKENS} tokens")
-    constraints = {}
-    if p_ids:
-        # anchor policy verbatim at the plan start (position a0 = 0 of
-        # the generated span; prompt sits before it)
-        constraints["_policy_ids"] = p_ids
-    required, forbidden = [], []
-    for term in must_do:
-        ids = [i for i in tokenizer.encode(term)
-               if i not in (tokenizer.mask_id, tokenizer.eos_id)]
-        if len(ids) != 1:
-            raise ContractError(
-                f"must_do term {term!r} is {len(ids)} tokens, need exactly 1")
-        required.append(ids[0])
-    for term in never_do:
-        ids = [i for i in tokenizer.encode(term)
-               if i not in (tokenizer.mask_id, tokenizer.eos_id)]
-        if len(ids) != 1:
-            raise ContractError(
-                f"never_do term {term!r} is {len(ids)} tokens, need exactly 1")
-        forbidden.append(ids[0])
-    overlap = set(required) & set(forbidden)
-    if overlap:
-        raise ContractError("term both required and forbidden")
-    if required:
-        constraints["required_ids"] = sorted(set(required))
-    if forbidden:
-        constraints["forbidden_ids"] = sorted(set(forbidden))
-    return p_ids, constraints
+    c = Contract()
+    if policy:
+        c.lock(policy)
+    c.require(*must_do)
+    c.forbid(*never_do)
+    c.exact_length(TOTAL_LENGTH)
+    c.compile(tokenizer, prompt_len=0)  # fail fast on malformed terms
+    return c
 
 
 def generate_plan(model, task, policy="", must_do=(), never_do=(),
@@ -82,18 +49,9 @@ def generate_plan(model, task, policy="", must_do=(), never_do=(),
 
     constraints, verified = None, False
     if enforce:
-        p_ids, constraints = compile_contract(
-            tok, policy=policy, must_do=must_do, never_do=never_do)
-        # anchor the policy at the start of the generated span
-        a0 = len(task_ids)
-        anchors = {a0 + p: t for p, t in enumerate(p_ids)}
-        constraints = dict(constraints)
-        constraints["anchors"] = anchors
-        constraints.pop("_policy_ids", None)
-        n_masks = TOTAL_LENGTH - len(task_ids) - len(p_ids)
-        n_req = len(constraints.get("required_ids", []))
-        if n_masks < n_req:
-            raise ContractError("not enough room for required terms")
+        contract = compile_contract(tok, policy=policy, must_do=must_do,
+                                    never_do=never_do)
+        constraints, _ = contract.compile(tok, prompt_len=len(task_ids))
         verified = True
     else:
         ctx = ("Policy: " + policy + "\nMust do: " + ", ".join(must_do)
@@ -107,11 +65,8 @@ def generate_plan(model, task, policy="", must_do=(), never_do=(),
         prompt_ids=prompt_ids,
         constraints=constraints if verified else None,
         device=model.device)
-    check = (check_constraints(ids, constraints, tok.mask_id)
+    check = (Contract.verify(ids, constraints, tok.mask_id)
              if verified else {})
     plan = tok.decode(ids.tolist()[len(prompt_ids):])
-    guaranteed = verified and all(check.get(k, False)
-                                  for k in ("required_present",
-                                            "forbidden_absent",
-                                            "anchors_intact"))
+    guaranteed = verified and Contract.holds(check)
     return {"plan": plan, "guaranteed": guaranteed, "check": check}

@@ -17,9 +17,17 @@ Constraint model (all enforced DURING denoising, verified after):
     forcing their logits to -inf each step. Prompt/frozen context is the
     caller's responsibility — forbidden filtering does not rewrite it.
   * ``required_ids`` are a SET: each id must occur >= 1 in the final canvas.
-    Occurrences already present in prompt/frozen context count. Missing ids
-    are force-placed into reserved masked slots (see the slot-reservation
-    invariant in DenoisingState.step).
+    ``required_counts`` generalizes this to {id: min_occurrences}.
+    Occurrences already present in prompt/frozen context count. Missing
+    occurrences are force-placed into reserved masked slots (see the
+    slot-reservation invariant in DenoisingState.step).
+  * ``at_most`` caps occurrences: a token at its cap is suppressed at every
+    remaining masked position.
+  * ``forbidden_phrases`` are never allowed to complete: any fill that
+    would create a new occurrence beyond its allowance is suppressed at
+    that position (preventive, so the guarantee holds by construction).
+  * ``order_pairs`` are verified post-hoc (every a before every b); the
+    Contract compiler lays phrase blocks out in an order satisfying them.
   * ``anchors`` are pre-placed and locked before denoising starts.
   * [MASK] is not in the fill alphabet: a position the sampler fills never
     becomes [MASK] again, so the step budget always suffices and a finished
@@ -143,6 +151,32 @@ def build_priority(length: int, order: str, device="cpu",
     return pr.to(device)
 
 
+def _count_occurrences(ids_list, phrase):
+    """Non-overlapping contiguous occurrences of phrase in ids_list."""
+    L = len(phrase)
+    n, i, N = 0, 0, len(ids_list)
+    while i <= N - L:
+        if ids_list[i:i + L] == phrase:
+            n += 1
+            i += L
+        else:
+            i += 1
+    return n
+
+
+def _phrase_spans(ids_list, phrase):
+    """Start positions of non-overlapping contiguous occurrences."""
+    L = len(phrase)
+    out, i, N = [], 0, len(ids_list)
+    while i <= N - L:
+        if ids_list[i:i + L] == phrase:
+            out.append(i)
+            i += L
+        else:
+            i += 1
+    return out
+
+
 def check_constraints(ids: torch.Tensor, constraints: dict | None,
                       mask_id: int) -> dict:
     """Verify hard constraints on a finished sequence. All structural
@@ -152,13 +186,41 @@ def check_constraints(ids: torch.Tensor, constraints: dict | None,
     required = c.get("required_ids", [])
     forbidden = c.get("forbidden_ids", [])
     anchors = c.get("anchors", {})
+    required_counts = c.get("required_counts") or {}
+    at_most = c.get("at_most") or {}
+    forbidden_phrases = c.get("forbidden_phrases") or []
+    order_pairs = c.get("order_pairs") or []
     ids = ids.cpu()
+    ids_list = ids.tolist()
+    counts_met = all(ids_list.count(t) >= n
+                     for t, n in required_counts.items())
+    if not required_counts:
+        counts_met = True
+    caps_met = all(ids_list.count(t) <= n for t, n in at_most.items())
+    phrases_ok = all(
+        _count_occurrences(ids_list, list(p)) <= m
+        for p, m in forbidden_phrases)
+    order_ok = True
+    for a, b in order_pairs:
+        a, b = list(a), list(b)
+        sa, sb = _phrase_spans(ids_list, a), _phrase_spans(ids_list, b)
+        if not sa or not sb:
+            order_ok = False
+            break
+        # every occurrence of a ends before every occurrence of b starts
+        if max(s + len(a) for s in sa) > min(sb):
+            order_ok = False
+            break
     return {
         "required_present": all(bool((ids == t).any()) for t in required),
         "forbidden_absent": not any(bool((ids == t).any()) for t in forbidden),
         "anchors_intact": all(ids[p] == t for p, t in anchors.items()
                               if 0 <= p < len(ids)),
         "complete": not bool((ids == mask_id).any()),
+        "counts_met": counts_met,
+        "caps_met": caps_met,
+        "phrases_ok": phrases_ok,
+        "order_ok": order_ok,
     }
 
 
@@ -171,18 +233,20 @@ class DenoisingState:
     constraint sets, and per-position ``confidences``.
 
     Required-token guarantee — slot-reservation invariant:
-      Let m_s = #masked positions and q_s = #missing required ids at the
-      start of iteration s. INVARIANT: q_s <= m_s.
-      * Base: __init__ raises unless m_0 >= len(required_ids) >= q_0.
+      Let m_s = #masked positions and q_s = #missing required occurrences
+      (sum over required_counts of still-needed counts) at the start of
+      iteration s. INVARIANT: q_s <= m_s.
+      * Base: __init__ raises unless m_0 >= sum(required_counts) >= q_0.
       * Step (not final): normal top-k fill is capped at (m_s - q_s)
         positions, so at least q_s masked slots survive; force-placement
         adds none. missing only shrinks as tokens appear, so
         m_{s+1} = m_s - filled >= q_s >= q_{s+1}.
-      * Final step (steps_remaining == 1): ALL missing ids are force-placed
-        into the most-confident remaining masked positions (possible by the
-        invariant), so q_end = 0.
+      * Final step (steps_remaining == 1): ALL missing occurrences are
+        force-placed into the most-confident remaining masked positions
+        that keep v2 constraints intact (possible by the invariant;
+        raises loudly if no safe position exists), so q_end = 0.
       Manual ops (pin/unmask/remask) re-validate the invariant and raise
-      instead of breaking it. Hence: every required id occurs >= 1 in the
+      instead of breaking it. Hence: every required count is met in the
       final canvas. QED.
     """
 
@@ -234,12 +298,76 @@ class DenoisingState:
             raise ValueError(
                 "impossible constraint set: token ids "
                 f"{sorted(overlap)} are both required and forbidden")
+
+        # --- v2 constraints ---
+        # required COUNTS {id: min_occurrences}; required_ids merge as 1.
+        self.required_counts = {t: 1 for t in self.required_ids}
+        for t, n in (c.get("required_counts") or {}).items():
+            t, n = int(t), int(n)
+            if n < 1:
+                raise ValueError(
+                    f"required count for token {t} must be >= 1")
+            if t in self.forbidden_ids:
+                raise ValueError(
+                    f"impossible constraint set: token {t} both required "
+                    "and forbidden")
+            if t == mask_id:
+                raise ValueError("mask_id cannot be required")
+            self.required_counts[t] = max(self.required_counts.get(t, 0), n)
+        self.required_ids = sorted(self.required_counts)
+        # at-most caps {id: max_occurrences}
+        self.at_most = {}
+        for t, n in (c.get("at_most") or {}).items():
+            t, n = int(t), int(n)
+            if n < 0:
+                raise ValueError(f"at_most cap for token {t} must be >= 0")
+            if t == mask_id:
+                raise ValueError("mask_id cannot be capped")
+            if t in self.required_counts and self.required_counts[t] > n:
+                raise ValueError(
+                    f"impossible constraint set: token {t} required "
+                    f"{self.required_counts[t]}x but capped at {n}x")
+            self.at_most[t] = n
+        # forbidden phrases [(ids, max_allowed)]; 0 = never
+        self.forbidden_phrases = []
+        for ids, m in (c.get("forbidden_phrases") or []):
+            ids = [int(i) for i in ids]
+            m = int(m)
+            if not ids:
+                raise ValueError("empty forbidden phrase")
+            if m < 0:
+                raise ValueError("forbidden-phrase allowance must be >= 0")
+            if mask_id in ids:
+                raise ValueError("mask_id cannot appear in a phrase")
+            if any(t in self.forbidden_ids for t in ids):
+                # a phrase containing a forbidden single token can never
+                # form (that token never appears): vacuously satisfiable.
+                continue
+            self.forbidden_phrases.append((ids, m))
+        # ordering [(a_ids, b_ids)]: every a before every b
+        self.order_pairs = []
+        for a, b in (c.get("order_pairs") or []):
+            a = [int(i) for i in a]
+            b = [int(i) for i in b]
+            if not a or not b:
+                raise ValueError("empty phrase in order pair")
+            self.order_pairs.append((a, b))
+
         if vocab_size is not None:
             for t in self.forbidden_ids + self.required_ids:
                 if not (0 <= t < vocab_size):
                     raise ValueError(
                         f"constraint token id {t} out of vocabulary "
                         f"range [0, {vocab_size})")
+            for t in self.at_most:
+                if not (0 <= t < vocab_size):
+                    raise ValueError(
+                        f"at_most token id {t} out of vocabulary range")
+            for ids, _ in self.forbidden_phrases:
+                for t in ids:
+                    if not (0 <= t < vocab_size):
+                        raise ValueError(
+                            "forbidden-phrase token id out of vocabulary")
             for p in self.anchors:
                 if not (0 <= p < self.length):
                     raise ValueError(f"anchor position {p} out of range")
@@ -301,9 +429,10 @@ class DenoisingState:
         self.frozen = frozen
 
         masked0 = (x == mask_id) & ~frozen
-        if self.required_ids and int(masked0.sum()) < len(self.required_ids):
+        need0 = sum(self.required_counts.values())
+        if need0 and int(masked0.sum()) < need0:
             raise ValueError(
-                f"unsatisfiable: {len(self.required_ids)} required tokens "
+                f"unsatisfiable: {need0} required token occurrences "
                 f"but only {int(masked0.sum())} maskable positions")
         self.masked = masked0.clone()
 
@@ -322,6 +451,71 @@ class DenoisingState:
     @property
     def finished(self) -> bool:
         return self.steps_remaining <= 0 or not bool(self.masked.any())
+
+    # -- v2 constraint helpers -------------------------------------------
+    def _need_counts(self, x):
+        """{token_id: still-needed occurrences} for the required counts."""
+        need = {}
+        for t, n in self.required_counts.items():
+            have = int((x == t).sum())
+            if have < n:
+                need[t] = n - have
+        return need
+
+    @staticmethod
+    def _count_phrase(x_list, phrase):
+        """Non-overlapping contiguous occurrences of phrase in x_list."""
+        L = len(phrase)
+        n, i, N = 0, 0, len(x_list)
+        while i <= N - L:
+            if x_list[i:i + L] == phrase:
+                n += 1
+                i += L
+            else:
+                i += 1
+        return n
+
+    def _phrase_occurrences(self, x):
+        """Current occurrence count for each forbidden phrase."""
+        xl = x.tolist()
+        return [self._count_phrase(xl, p) for p, _ in self.forbidden_phrases]
+
+    def _completing_tokens(self, pos):
+        """Token ids that must NOT be placed at masked position ``pos``:
+        any token whose placement would create a NEW forbidden-phrase
+        occurrence beyond its allowance. Preventive: the phrase can never
+        complete, so the guarantee holds by construction."""
+        out = []
+        if not self.forbidden_phrases:
+            return out
+        x = self.x
+        occ = self._phrase_occurrences(x)
+        for (phrase, max_allowed), cur in zip(self.forbidden_phrases, occ):
+            if cur < max_allowed:
+                continue
+            L = len(phrase)
+            for off in range(L):
+                start = pos - off
+                if start < 0 or start + L > self.length:
+                    continue
+                ok = True
+                for j, tid in enumerate(phrase):
+                    p = start + j
+                    if p == pos:
+                        continue
+                    pv = int(x[p])
+                    if pv == self.mask_id or pv != tid:
+                        ok = False
+                        break
+                if ok:
+                    out.append(phrase[off])
+                    break  # one suppression per phrase per position
+        return out
+
+    def _capped_tokens(self):
+        """Token ids currently at their at_most cap."""
+        return [t for t, n in self.at_most.items()
+                if int((self.x == t).sum()) >= n]
 
     @torch.no_grad()
     def step(self, model) -> bool:
@@ -348,30 +542,56 @@ class DenoisingState:
         conf, _ = probs.max(dim=-1)                             # (L,)
         self.conf = conf
 
-        # required ids absent from the whole canvas (prompt/frozen count).
-        missing = [t for t in self.required_ids if not (self.x == t).any()]
+        # required counts absent from the whole canvas (prompt/frozen count).
+        # missing is a multiset: one entry per still-needed occurrence.
+        need = self._need_counts(self.x)
+        missing = [t for t, k in need.items() for _ in range(k)]
 
-        # ENDGAME (invariant: len(missing) <= #masked, proved in class
-        # docstring): on the final step, force-place ALL missing ids into
-        # the most-confident remaining masked positions.
+        # ENDGAME (invariant: sum(missing) <= #masked, proved in class
+        # docstring): on the final step, force-place ALL missing occurrences
+        # into the most-confident remaining masked positions that keep every
+        # v2 constraint intact (no forbidden-phrase completion, no at_most
+        # breach). A placement failure here is a loud error, not a silent
+        # guarantee break.
         if missing and self.steps_remaining == 1:
             mconf = torch.where(self.masked, conf,
                                 torch.full_like(conf, -1.0))
-            _, fidx = torch.topk(mconf, len(missing))
-            for pos_i, tok_i in zip(fidx.tolist(), missing):
-                self.x[pos_i] = tok_i
-                self.conf[pos_i] = 1.0  # placed deterministically
+            cand = [p for p in torch.argsort(mconf, descending=True).tolist()
+                    if bool(self.masked[p])]
+            used = set()
+            for tok_i in missing:
+                placed_tok = False
+                for pos_i in cand:
+                    if pos_i in used:
+                        continue
+                    if tok_i in self._completing_tokens(pos_i):
+                        continue
+                    cap = self.at_most.get(tok_i)
+                    if cap is not None and \
+                            int((self.x == tok_i).sum()) >= cap:
+                        raise ValueError(
+                            f"unsatisfiable at endgame: required token "
+                            f"{tok_i} would exceed its at_most cap")
+                    self.x[pos_i] = tok_i
+                    self.conf[pos_i] = 1.0  # placed deterministically
+                    used.add(pos_i)
+                    placed_tok = True
+                    break
+                if not placed_tok:
+                    raise ValueError(
+                        "unsatisfiable at endgame: no safe position for "
+                        f"required token {tok_i}")
             self.masked = (self.x == self.mask_id) & ~self.frozen
             missing = []
 
-        # normal parallel fill, reserving one masked slot per missing id.
+        # normal parallel fill, reserving masked slots for missing counts.
         m = int(self.masked.sum())
         k = 0
         if m > 0:
             k = max(1, math.ceil(m / self.steps_remaining))
             if missing:
-                # SLOT RESERVATION: never consume a slot a missing required
-                # token still needs. This is what keeps q_s <= m_s.
+                # SLOT RESERVATION: never consume slots that missing required
+                # occurrences still need. This is what keeps q_s <= m_s.
                 k = min(k, max(0, m - len(missing)))
         if k > 0:
             if self.priority is not None:
@@ -390,6 +610,16 @@ class DenoisingState:
             for i in idx.tolist():
                 p = probs[i].clone()
                 p[self.mask_id] = 0.0
+                # v2: preventive suppression specific to this position —
+                # at_most caps and forbidden-phrase completions. Applied
+                # per fill (the loop is sequential, so each fill sees the
+                # previous ones: no parallel-completion race).
+                v2_blocked = []
+                if self.forbidden_phrases or self.at_most:
+                    v2_blocked = self._completing_tokens(i) + \
+                        self._capped_tokens()
+                    if v2_blocked:
+                        p[v2_blocked] = 0.0
                 s = p.sum()
                 if s <= 0:
                     # degenerate: model put all mass on [MASK]; fall back to
@@ -400,6 +630,12 @@ class DenoisingState:
                     allowed[self.mask_id] = False
                     if self.forbidden_ids:
                         allowed[self.forbidden_ids] = False
+                    if v2_blocked:
+                        allowed[v2_blocked] = False
+                    if not bool(allowed.any()):
+                        raise ValueError(
+                            "impossible constraint set: no fillable token "
+                            f"at position {i}")
                     p = allowed.float() / allowed.sum()
                 else:
                     p = p / s
@@ -425,11 +661,12 @@ class DenoisingState:
 
     # -- mid-process intervention ----------------------------------------
     def _check_slot_invariant(self, x, masked, context: str):
-        missing = sum(1 for t in self.required_ids if not (x == t).any())
+        missing = sum(max(0, n - int((x == t).sum()))
+                      for t, n in self.required_counts.items())
         if missing > int(masked.sum()):
             raise ValueError(
                 f"{context} would break the required-token slot invariant "
-                f"({missing} missing required ids, "
+                f"({missing} missing required occurrences, "
                 f"{int(masked.sum())} masked slots left)")
 
     def pin(self, pos: int, token_id: int):
@@ -523,6 +760,12 @@ class DenoisingState:
             "steps_remaining": self.steps_remaining,
             "forbidden_ids": list(self.forbidden_ids),
             "required_ids": list(self.required_ids),
+            "required_counts": dict(self.required_counts),
+            "at_most": dict(self.at_most),
+            "forbidden_phrases": [(list(p), m)
+                                  for p, m in self.forbidden_phrases],
+            "order_pairs": [(list(a), list(b))
+                            for a, b in self.order_pairs],
             "anchors": dict(self.anchors),
             "trajectory": ([t.cpu().clone() for t in self.trajectory]
                            if self.trajectory is not None else None),
@@ -550,6 +793,15 @@ class DenoisingState:
         st.vocab_size = snap["vocab_size"]
         st.forbidden_ids = list(snap["forbidden_ids"])
         st.required_ids = list(snap["required_ids"])
+        st.required_counts = {int(t): int(n) for t, n in
+                              snap.get("required_counts",
+                                       {t: 1 for t in snap["required_ids"]}).items()}
+        st.at_most = {int(t): int(n) for t, n in
+                      snap.get("at_most", {}).items()}
+        st.forbidden_phrases = [([int(i) for i in p], int(m)) for p, m in
+                                snap.get("forbidden_phrases", [])]
+        st.order_pairs = [([int(i) for i in a], [int(i) for i in b])
+                          for a, b in snap.get("order_pairs", [])]
         st.anchors = dict(snap["anchors"])
         st.x = snap["x"].clone()
         st.frozen = snap["frozen"].clone()
@@ -779,11 +1031,18 @@ def self_refine(model, length: int, mask_id: int, eos_id: int,
     # out of remasking so the guarantee survives refinement.
     for t in (constraints or {}).get("required_ids", []):
         lock |= (ids == int(t))
-    # Forbidden ids must stay excluded in every refine round too.
+    # Forbidden ids must stay excluded in every refine round too, as must
+    # the v2 constraints (counts, caps, phrases, order).
     refine_constraints = None
     _forbidden = list((constraints or {}).get("forbidden_ids", []))
-    if _forbidden:
-        refine_constraints = {"forbidden_ids": _forbidden}
+    _v2 = {}
+    for k in ("required_counts", "at_most", "forbidden_phrases",
+              "order_pairs"):
+        v = (constraints or {}).get(k)
+        if v:
+            _v2[k] = v
+    if _forbidden or _v2:
+        refine_constraints = {"forbidden_ids": _forbidden, **_v2}
 
     for r in range(refine_rounds):
         if bool(lock.all()):

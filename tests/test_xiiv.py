@@ -68,6 +68,65 @@ def test_mask_batch_ratios():
     print("PASS test_mask_batch_ratios", round(r, 3))
 
 
+def test_mask_batch_lock_prob_zero_is_classic():
+    # lock_prob=0.0 must behave exactly like the classic forward process:
+    # no position is protected; every position can be masked.
+    cfg = tiny_cfg()
+    ids = torch.randint(0, cfg.vocab_size, (64, 32))
+    g = torch.Generator().manual_seed(1)
+    noisy, targets, mask = mask_batch(ids, cfg.mask_id, 0.15, 1.0, g,
+                                      lock_prob=0.0)
+    assert torch.equal(targets, ids)
+    assert (noisy[mask] == cfg.mask_id).all()
+    assert (noisy[~mask] == ids[~mask]).all()
+    print("PASS test_mask_batch_lock_prob_zero_is_classic")
+
+
+def test_mask_batch_locked_spans_never_masked():
+    # With lock_prob=1.0 every sequence gets locked spans; locked
+    # positions are never masked and stay identical to the input.
+    # t=1.0 masks every non-locked position, so unmasked == locked.
+    cfg = tiny_cfg()
+    ids = torch.randint(0, cfg.vocab_size, (32, 64))
+    g = torch.Generator().manual_seed(2)
+    noisy, targets, mask = mask_batch(ids, cfg.mask_id, 1.0, 1.0, g,
+                                      lock_prob=1.0)
+    assert torch.equal(targets, ids)
+    assert (noisy[mask] == cfg.mask_id).all()
+    assert (noisy[~mask] == ids[~mask]).all()
+    unmasked = ~mask
+    assert unmasked.any(), "expected some locked positions"
+    for b in range(32):
+        row = unmasked[b].tolist()
+        # locked spans are contiguous runs; count runs
+        runs = sum(1 for i, v in enumerate(row)
+                   if v and (i == 0 or not row[i - 1]))
+        assert 1 <= runs <= 2, runs
+        # each run is 4..12 long (the lock_len range)
+        run, lens = 0, []
+        for v in row + [False]:
+            if v:
+                run += 1
+            elif run:
+                lens.append(run)
+                run = 0
+        assert all(4 <= n <= 24 for n in lens), lens  # merged spans ok
+    print("PASS test_mask_batch_locked_spans_never_masked")
+
+
+def test_diffusion_loss_with_lock_prob_finite():
+    cfg = tiny_cfg()
+    torch.manual_seed(3)
+    m = XIIVModel(cfg)
+    m.init_weights()
+    ids = torch.randint(0, cfg.vocab_size, (8, 32))
+    loss, info = diffusion_loss(m, ids, cfg.mask_id, lock_prob=0.5)
+    assert torch.isfinite(loss).all()
+    assert info["n_masked"] > 0
+    print("PASS test_diffusion_loss_with_lock_prob_finite",
+          round(loss.item(), 3))
+
+
 def test_loss_finite_and_decreases():
     cfg = tiny_cfg()
     torch.manual_seed(0)

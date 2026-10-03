@@ -71,6 +71,12 @@ def main():
                     help="cpu | cuda | auto (auto picks cuda when available)")
     ap.add_argument("--grad-checkpoint", action="store_true",
                     help="activation checkpointing: less VRAM, ~30% slower")
+    ap.add_argument("--lock-prob", type=float, default=0.0,
+                    help="constraint-aware training: fraction of sequences "
+                         "with locked spans (never masked); 0.0 = classic")
+    ap.add_argument("--init-ckpt", default=None,
+                    help="load model weights from this checkpoint and "
+                         "fine-tune (optimizer restarts fresh)")
     args = ap.parse_args()
 
     torch.manual_seed(args.seed)
@@ -102,6 +108,11 @@ def main():
 
     model = XIIVModel(cfg)
     model.init_weights()
+    if args.init_ckpt:
+        ck = load_ckpt_trusted(args.init_ckpt)
+        model.load_state_dict(ck["model"])
+        print(f"fine-tuning from {args.init_ckpt} "
+              f"(step {ck.get('step', '?')})")
     model.to(device)
     model.grad_checkpoint = args.grad_checkpoint
     if args.compile:
@@ -196,7 +207,8 @@ def main():
         opt.zero_grad(set_to_none=True)
         with amp:
             loss, info = diffusion_loss(model, batch, cfg.mask_id,
-                                        cfg.t_min, cfg.t_max)
+                                        cfg.t_min, cfg.t_max,
+                                        lock_prob=args.lock_prob)
         if not torch.isfinite(loss):
             nonfinite_streak += 1
             print(f"[step {step}] NON-FINITE LOSS (streak {nonfinite_streak})"

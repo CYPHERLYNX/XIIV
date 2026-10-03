@@ -33,15 +33,38 @@ import torch.nn.functional as F
 
 
 def mask_batch(ids: torch.Tensor, mask_id: int, t_min: float = 0.15,
-               t_max: float = 1.0, generator=None):
+               t_max: float = 1.0, generator=None, lock_prob: float = 0.0,
+               lock_spans: tuple = (1, 2), lock_len: tuple = (4, 12)):
     """Apply the diffusion forward process to a batch of token ids.
 
     Returns (noisy_ids, targets, mask) where mask marks corrupted positions.
+
+    Constraint-aware training: with probability ``lock_prob`` per
+    sequence, 1-2 random contiguous spans are marked *locked* — never
+    masked, never in the loss. The model must denoise everything around
+    them, exactly like inference with anchored facts / locked policy
+    text. This teaches fluency-around-fixed-text as a training
+    objective, not just a sampling trick.
     """
     B = ids.shape[0]
     t = torch.empty(B, device=ids.device).uniform_(t_min, t_max, generator=generator)
     rand = torch.rand(ids.shape, device=ids.device, generator=generator)
     mask = rand < t.view(B, *([1] * (ids.dim() - 1)))
+    if lock_prob > 0:
+        L = ids.shape[1]
+        locked = torch.zeros_like(mask)
+        for b in range(B):
+            if torch.rand((), generator=generator).item() > lock_prob:
+                continue
+            n_spans = torch.randint(lock_spans[0], lock_spans[1] + 1, (),
+                                    generator=generator).item()
+            for _ in range(n_spans):
+                ln = torch.randint(lock_len[0], lock_len[1] + 1, (),
+                                   generator=generator).item()
+                ln = min(ln, L)
+                st = torch.randint(0, L - ln + 1, (), generator=generator).item()
+                locked[b, st:st + ln] = True
+        mask = mask & ~locked
     noisy = ids.clone()
     noisy[mask] = mask_id
     return noisy, ids, mask
@@ -49,14 +72,19 @@ def mask_batch(ids: torch.Tensor, mask_id: int, t_min: float = 0.15,
 
 def diffusion_loss(model, ids: torch.Tensor, mask_id: int,
                    t_min: float = 0.15, t_max: float = 1.0, generator=None,
-                   image_embeds: torch.Tensor | None = None):
+                   image_embeds: torch.Tensor | None = None,
+                   lock_prob: float = 0.0):
     """Mean cross-entropy over masked positions only.
 
     image_embeds: optional (B, N, d) visual prefix for multimodal training
     (substituted for the first N embeddings by the model; those positions
     should be excluded from masking by the caller).
+
+    lock_prob: fraction of sequences trained with locked spans
+    (constraint-aware training; see mask_batch).
     """
-    noisy, targets, mask = mask_batch(ids, mask_id, t_min, t_max, generator)
+    noisy, targets, mask = mask_batch(ids, mask_id, t_min, t_max, generator,
+                                      lock_prob=lock_prob)
     if image_embeds is not None:
         logits = model(noisy, image_embeds)
     else:

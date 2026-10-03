@@ -1,0 +1,98 @@
+[
+ {
+  "q": "What is the capital of France?",
+  "recall_enforced": 1.0,
+  "recall_prompt": 0.0,
+  "guaranteed": true,
+  "secs_enforced": 4.4,
+  "secs_prompt": 4.8
+ },
+ {
+  "q": "Who painted the Mona Lisa?",
+  "recall_enforced": 1.0,
+  "recall_prompt": 0.0,
+  "guaranteed": true,
+  "secs_enforced": 4.4,
+  "secs_prompt": 4.6
+ },
+ {
+  "q": "What is the largest planet in the solar system?",
+  "recall_enforced": null,
+  "recall_prompt": null,
+  "guaranteed": true,
+  "secs_enforced": 4.6,
+  "secs_prompt": 4.8
+ },
+ {
+  "q": "In which year did World War II end?",
+  "recall_enforced": 1.0,
+  "recall_prompt": 0.25,
+  "guaranteed": true,
+  "secs_enforced": 4.8,
+  "secs_prompt": 4.8
+ },
+ {
+  "q": "What is the chemical symbol for gold?",
+  "recall_enforced": 1.0,
+  "recall_prompt": 0.0,
+  "guaranteed": true,
+  "secs_enforced": 6.0,
+  "secs_prompt": 5.0
+ },
+ {
+  "q": "Who wrote Romeo and Juliet?",
+  "recall_enforced": 1.0,
+  "recall_prompt": 0.5,
+  "guaranteed": true,
+  "secs_enforced": 4.6,
+  "secs_prompt": 6.4
+ },
+ {
+  "q": "What is the capital of Japan?",
+  "recall_enforced": 1.0,
+  "recall_prompt": 0.0,
+  "guaranteed": true,
+  "secs_enforced": 4.6,
+  "secs_prompt": 4.4
+ },
+ {
+  "q": "How many continents are there?",
+  "recall_enforced": null,
+  "recall_prompt": null,
+  "guaranteed": true,
+  "secs_enforced": 4.3,
+  "secs_prompt": 4.3
+ },
+ {
+  "q": "What year did the Titanic sink?",
+  "recall_enforced": 1.0,
+  "recall_prompt": 0.0,
+  "guaranteed": true,
+  "secs_enforced": 4.5,
+  "secs_prompt": 4.5
+ },
+ {
+  "q": "Who invented the telephone?",
+  "recall_enforced": 1.0,
+  "recall_prompt": 0.0,
+  "guaranteed": true,
+  "secs_enforced": 5.3,
+  "secs_prompt": 4.5
+ },
+ {
+  "q": "What is the fastest land animal?",
+  "recall_enforced": null,
+  "recall_prompt": null,
+  "guaranteed": true,
+  "secs_enforced": 4.5,
+  "secs_prompt": 5.5
+ },
+ {
+  "q": "Which planet is known as the Red Planet?",
+  "recall_enforced": 1.0,
+  "recall_prompt": 0.0,
+  "guaranteed": true,
+  "secs_enforced": 5.3,
+  "secs_prompt": 5.9
+ }
+]

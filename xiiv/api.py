@@ -142,6 +142,19 @@ class XIIV:
             prompt_ids=prompt_ids, device=self.device)
         return self.tok.decode(ids.tolist()[len(prompt_ids):])
 
+    def ask(self, question, steps=16, seed=7, temperature=1.0, top_p=0.95):
+        """Answer a factual question with retrieved, enforced facts.
+
+        Retrieves evidence from Wikipedia and the 2020-2026 news archive,
+        then generates with the evidence frozen (byte-exact) and key fact
+        terms as required tokens (structurally force-placed). Returns a
+        dict: {"answer", "facts", "sources", "key_terms", "guaranteed"}.
+        When no verified facts are found, says so instead of guessing.
+        """
+        from .knowledge.pipeline import answer
+        return answer(question, self, steps=steps, seed=seed,
+                      temperature=temperature, top_p=top_p)
+
     @property
     def n_params(self):
         """Exact parameter count."""

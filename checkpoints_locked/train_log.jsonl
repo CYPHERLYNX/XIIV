@@ -1,0 +1,21 @@
+{"step": 5, "loss": 3.3132, "lr": 1e-06, "tok_s": 140.5, "mask_ratio": 0.541, "tokens_seen_M": 0.01}
+{"step": 5, "loss": 3.3132, "lr": 1e-06, "tok_s": 52.0, "mask_ratio": 0.541, "tokens_seen_M": 0.01}
+{"step": 10, "loss": 2.8597, "lr": 2e-06, "tok_s": 135.8, "mask_ratio": 0.618, "tokens_seen_M": 0.01}
+{"step": 25, "loss": 3.2894, "lr": 5e-05, "tok_s": 95.3, "mask_ratio": 0.453, "tokens_seen_M": 0.03}
+{"step": 50, "loss": 2.9972, "lr": 0.0001, "tok_s": 162.6, "mask_ratio": 0.47, "tokens_seen_M": 0.05}
+{"step": 75, "loss": 3.4456, "lr": 9.895986796440914e-05, "tok_s": 169.1, "mask_ratio": 0.523, "tokens_seen_M": 0.08}
+{"step": 100, "loss": 4.1367, "lr": 9.571721736097089e-05, "tok_s": 162.3, "mask_ratio": 0.697, "tokens_seen_M": 0.1}
+{"step": 125, "loss": 3.8172, "lr": 9.043283545876054e-05, "tok_s": 161.9, "mask_ratio": 0.562, "tokens_seen_M": 0.13}
+{"step": 150, "loss": 3.9853, "lr": 8.337170323201212e-05, "tok_s": 157.3, "mask_ratio": 0.604, "tokens_seen_M": 0.15}
+{"step": 175, "loss": 3.8105, "lr": 7.488789533529522e-05, "tok_s": 138.9, "mask_ratio": 0.568, "tokens_seen_M": 0.18}
+{"step": 200, "loss": 3.1295, "lr": 6.540682532184785e-05, "tok_s": 105.7, "mask_ratio": 0.447, "tokens_seen_M": 0.2}
+{"step": 200, "val_nll": 3.1751, "best": true}
+{"step": 225, "loss": 3.5687, "lr": 5.5403913631644905e-05, "tok_s": 110.5, "mask_ratio": 0.664, "tokens_seen_M": 0.23}
+{"step": 250, "loss": 3.9877, "lr": 4.538074802535485e-05, "tok_s": 153.4, "mask_ratio": 0.598, "tokens_seen_M": 0.26}
+{"step": 275, "loss": 4.1291, "lr": 3.583993187957173e-05, "tok_s": 161.4, "mask_ratio": 0.623, "tokens_seen_M": 0.28}
+{"step": 300, "loss": 3.2945, "lr": 2.725988155482386e-05, "tok_s": 187.2, "mask_ratio": 0.477, "tokens_seen_M": 0.31}
+{"step": 325, "loss": 3.5549, "lr": 2.0070836601564123e-05, "tok_s": 184.9, "mask_ratio": 0.663, "tokens_seen_M": 0.33}
+{"step": 350, "loss": 3.9588, "lr": 1.463328575258641e-05, "tok_s": 187.4, "mask_ratio": 0.596, "tokens_seen_M": 0.36}
+{"step": 375, "loss": 3.1284, "lr": 1.1219890512693478e-05, "tok_s": 186.2, "mask_ratio": 0.453, "tokens_seen_M": 0.38}
+{"step": 400, "loss": 3.634, "lr": 1.0001812772310802e-05, "tok_s": 179.0, "mask_ratio": 0.769, "tokens_seen_M": 0.41}
+{"step": 400, "val_nll": 3.3685, "best": false}

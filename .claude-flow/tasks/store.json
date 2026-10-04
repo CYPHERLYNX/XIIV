@@ -1,0 +1,18 @@
+{
+  "tasks": {
+    "task-1791116054721-jyojuh": {
+      "taskId": "task-1791116054721-jyojuh",
+      "type": "custom",
+      "description": "XIIV-100M from-scratch training: monitor checkpoints_100m/train.log, resume via scripts/run_100m.sh after reboot kills, verify quality at 40000 steps",
+      "priority": "normal",
+      "status": "pending",
+      "progress": 0,
+      "assignedTo": [],
+      "tags": [],
+      "createdAt": "2026-10-04T12:14:14.721Z",
+      "startedAt": null,
+      "completedAt": null
+    }
+  },
+  "version": "3.0.0"
+}

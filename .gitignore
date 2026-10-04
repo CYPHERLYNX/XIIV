@@ -40,3 +40,11 @@ RUN_LEDGER.md
 # 52.5M weights (105MB fp16 / 210MB fp32) ship via GitHub Release asset, not plain git (>100MB limit)
 weights_52m/xiiv-52m.safetensors
 weights_52m/xiiv-52m-fp16.safetensors
+
+# Ruflo local secrets and runtime data
+.env
+.env.local
+.env.*.local
+.claude-flow/data/
+.claude-flow/logs/
+.claude-flow/sessions/

@@ -1,0 +1,10 @@
+{
+  "vocab_size": 8192,
+  "mask_id": 2,
+  "eos_id": 3,
+  "seq_len": 128,
+  "train_blocks": 49019,
+  "valid_blocks": 2579,
+  "train_tokens": 6274432,
+  "valid_tokens": 330112
+}

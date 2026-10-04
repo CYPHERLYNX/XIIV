@@ -259,6 +259,7 @@ class DenoisingState:
                  vocab_size: int | None = None,
                  return_trajectory: bool = False,
                  image_embeds: torch.Tensor | None = None,
+                 contract_ids: torch.Tensor | None = None,
                  allow_frozen_masks: bool = False):
         self.length = int(length)
         self.mask_id = int(mask_id)
@@ -283,6 +284,18 @@ class DenoisingState:
             self.image_embeds = ie.to(device)
         else:
             self.image_embeds = None
+        # Contract-native path: (1, C) contract token ids, passed to the
+        # model's contract encoder on every step. None = unconditional.
+        if contract_ids is not None:
+            cid = torch.as_tensor(contract_ids, dtype=torch.long)
+            if cid.dim() == 1:
+                cid = cid.unsqueeze(0)
+            if cid.dim() != 2 or cid.shape[0] != 1:
+                raise ValueError(
+                    f"contract_ids must be (C,) or (1, C), got {tuple(cid.shape)}")
+            self.contract_ids = cid.to(device)
+        else:
+            self.contract_ids = None
 
         c = constraints or {}
         # SET semantics: each required id must occur >= 1 in the final
@@ -524,10 +537,12 @@ class DenoisingState:
             return False
         model.eval()
         xb = self.x.unsqueeze(0)                              # (1, L)
+        fwd_kwargs = {}
         if self.image_embeds is not None:
-            logits = model(xb, self.image_embeds).squeeze(0)   # (L, V)
-        else:
-            logits = model(xb).squeeze(0)                     # (L, V)
+            fwd_kwargs["image_embeds"] = self.image_embeds
+        if self.contract_ids is not None:
+            fwd_kwargs["contract_ids"] = self.contract_ids
+        logits = model(xb, **fwd_kwargs).squeeze(0)           # (L, V)
         if self.forbidden_ids:
             logits[:, self.forbidden_ids] = float("-inf")
             if not bool(torch.isfinite(logits).any(dim=-1).all()):
@@ -771,6 +786,8 @@ class DenoisingState:
                            if self.trajectory is not None else None),
             "image_embeds": (self.image_embeds.cpu().clone()
                              if self.image_embeds is not None else None),
+            "contract_ids": (self.contract_ids.cpu().clone()
+                             if self.contract_ids is not None else None),
             "allow_frozen_masks": self.allow_frozen_masks,
         }
 
@@ -813,6 +830,8 @@ class DenoisingState:
         st.trajectory = snap["trajectory"]
         st.image_embeds = (snap["image_embeds"].clone()
                            if snap.get("image_embeds") is not None else None)
+        st.contract_ids = (snap["contract_ids"].clone()
+                           if snap.get("contract_ids") is not None else None)
         st.allow_frozen_masks = bool(snap.get("allow_frozen_masks", False))
         g = torch.Generator(device=snap["device"])
         g.set_state(snap["generator_state"].clone())

@@ -129,6 +129,42 @@ class Contract:
         self._length = int(n)
         return self
 
+    # -- text form (for the contract-native model) ---------------------
+
+    @staticmethod
+    def _q(text: str) -> str:
+        return '"' + text.replace('"', '\\"') + '"'
+
+    def to_text(self) -> str:
+        """Canonical text serialization of the contract.
+
+        Deterministic: the same contract always produces the same string.
+        This is the input to the contract-native model's contract encoder
+        (tokenized with the main tokenizer) -- the contract as a first-class
+        architectural input, not a prompt hack.
+        """
+        parts = []
+        for text, at in self._locks:
+            parts.append(f"LOCK {self._q(text)} @{at}")
+        for t in self._required:
+            parts.append(f"REQUIRE {self._q(t)}")
+        for text, at in self._phrases:
+            tag = f" @{at}" if at is not None else ""
+            parts.append(f"REQUIRE_PHRASE {self._q(text)}{tag}")
+        for t in self._forbidden:
+            parts.append(f"FORBID {self._q(t)}")
+        for text in self._forbid_phrases:
+            parts.append(f"FORBID_PHRASE {self._q(text)}")
+        for a, b in self._order:
+            parts.append(f"ORDER {self._q(a)} < {self._q(b)}")
+        for term, n in self._at_least:
+            parts.append(f"ATLEAST {self._q(term)} x{n}")
+        for term, n in self._at_most:
+            parts.append(f"ATMOST {self._q(term)} x{n}")
+        if self._length is not None:
+            parts.append(f"LENGTH {self._length}")
+        return " | ".join(parts)
+
     # -- compilation ----------------------------------------------------
 
     def _clean_ids(self, tokenizer, text):

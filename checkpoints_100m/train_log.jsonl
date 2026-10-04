@@ -1,0 +1,12 @@
+{"step": 25, "loss": 7.7183, "lr": 1.4999999999999999e-05, "tok_s": 91.3, "mask_ratio": 0.537, "tokens_seen_M": 0.01}
+{"step": 25, "loss": 7.787, "lr": 1.4999999999999999e-05, "tok_s": 88.6, "mask_ratio": 0.607, "tokens_seen_M": 0.01}
+{"step": 50, "loss": 7.6443, "lr": 2.9999999999999997e-05, "tok_s": 92.2, "mask_ratio": 0.365, "tokens_seen_M": 0.03}
+{"step": 75, "loss": 7.2915, "lr": 4.4999999999999996e-05, "tok_s": 87.2, "mask_ratio": 0.656, "tokens_seen_M": 0.04}
+{"step": 100, "loss": 6.253, "lr": 5.9999999999999995e-05, "tok_s": 82.5, "mask_ratio": 0.58, "tokens_seen_M": 0.05}
+{"step": 125, "loss": 6.5887, "lr": 7.5e-05, "tok_s": 86.8, "mask_ratio": 0.426, "tokens_seen_M": 0.06}
+{"step": 150, "loss": 6.0243, "lr": 8.999999999999999e-05, "tok_s": 90.1, "mask_ratio": 0.486, "tokens_seen_M": 0.08}
+{"step": 175, "loss": 6.1113, "lr": 0.00010499999999999999, "tok_s": 84.1, "mask_ratio": 0.268, "tokens_seen_M": 0.09}
+{"step": 200, "loss": 6.0917, "lr": 0.00011999999999999999, "tok_s": 83.2, "mask_ratio": 0.557, "tokens_seen_M": 0.1}
+{"step": 225, "loss": 5.806, "lr": 0.00013499999999999997, "tok_s": 92.6, "mask_ratio": 0.389, "tokens_seen_M": 0.12}
+{"step": 250, "loss": 6.1933, "lr": 0.00015, "tok_s": 88.2, "mask_ratio": 0.49, "tokens_seen_M": 0.13}
+{"step": 275, "loss": 5.9992, "lr": 0.00016499999999999997, "tok_s": 88.3, "mask_ratio": 0.652, "tokens_seen_M": 0.14}

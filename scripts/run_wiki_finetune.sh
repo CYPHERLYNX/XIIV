@@ -4,7 +4,11 @@
 # trains on Gutenberg books with lock_prob=0.4.
 # Restarts after crashes; exits when TARGET steps are done.
 cd ~/workspace/ai-tools/corsac
-TARGET=2000
+# Long run: 20000 steps = 20.48M tokens ≈ 3.1 epochs of the 6.27M-token
+# books train set — same token budget as the original 52.5M base run.
+# Resumes from ckpt_2000.pt (best val NLL 5.5269); LR cosine schedule
+# recomputes from --total-steps so decay spans the full run.
+TARGET=20000
 while true; do
     last=$(ls checkpoints_books/ckpt_*.pt 2>/dev/null | sort -t_ -k2 -n | tail -1)
     if [ -n "$last" ]; then

@@ -91,11 +91,54 @@ class Block(nn.Module):
         self.attn = Attention(cfg)
         self.mlp_norm = RMSNorm(cfg.d_model, cfg.norm_eps)
         self.mlp = SwiGLU(cfg)
+        # Contract-native path: cross-attention to contract embeddings.
+        # Created only when cfg.contract_enabled; the zero-init gate makes
+        # the block bit-identical to the contract-free version until the
+        # gate trains away from zero.
+        self.contract_attn = (ContractCrossAttention(cfg)
+                              if cfg.contract_enabled else None)
+        self.contract_norm = (RMSNorm(cfg.d_model, cfg.norm_eps)
+                              if cfg.contract_enabled else None)
 
-    def forward(self, x, cos, sin):
+    def forward(self, x, cos, sin, contract_embeds=None):
         x = x + self.attn(self.attn_norm(x), cos, sin)
+        if contract_embeds is not None and self.contract_attn is not None:
+            x = x + self.contract_attn(self.contract_norm(x),
+                                       contract_embeds)
         x = x + self.mlp(self.mlp_norm(x))
         return x
+
+
+class ContractCrossAttention(nn.Module):
+    """Cross-attention from the denoising stream to contract embeddings.
+
+    Q comes from the token stream, K/V from the contract encoder output.
+    The output gate is zero-initialized: at init the layer is an exact
+    no-op, so enabling the architecture never perturbs existing behavior
+    until training moves the gate.
+    """
+
+    def __init__(self, cfg: ModelConfig):
+        super().__init__()
+        d, h = cfg.d_model, cfg.n_heads
+        assert d % h == 0
+        self.n_heads = h
+        self.head_dim = d // h
+        self.q = nn.Linear(d, d, bias=False)
+        self.kv = nn.Linear(d, 2 * d, bias=False)
+        self.out = nn.Linear(d, d, bias=False)
+        self.gate = nn.Parameter(torch.zeros(d))
+
+    def forward(self, x, contract_embeds):
+        B, T, D = x.shape
+        q = self.q(x).view(B, T, self.n_heads,
+                           self.head_dim).transpose(1, 2)
+        kv = self.kv(contract_embeds).view(
+            B, -1, 2, self.n_heads, self.head_dim).permute(2, 0, 3, 1, 4)
+        k, v = kv[0], kv[1]
+        y = F.scaled_dot_product_attention(q, k, v, is_causal=False)
+        y = y.transpose(1, 2).contiguous().view(B, T, D)
+        return self.gate * self.out(y)
 
 
 class PatchEmbed(nn.Module):
@@ -145,9 +188,17 @@ class XIIVModel(nn.Module):
         else:
             self.patch_embed = None
             self.n_image_tokens = 0
+        # Contract-native scaffold: created only when enabled; existing
+        # checkpoints are bit-unaffected when it is off.
+        if cfg.contract_enabled:
+            from .contract_encoder import ContractEncoder
+            self.contract_encoder = ContractEncoder(cfg)
+        else:
+            self.contract_encoder = None
 
     def forward(self, ids: torch.Tensor,
-                image_embeds: torch.Tensor | None = None) -> torch.Tensor:
+                image_embeds: torch.Tensor | None = None,
+                contract_ids: torch.Tensor | None = None) -> torch.Tensor:
         """ids: (B, T) -> logits (B, T, V).
 
         image_embeds: optional (B, N, d) visual prefix from PatchEmbed
@@ -155,6 +206,12 @@ class XIIVModel(nn.Module):
         first N token embeddings in place, so sequence length and the
         sampler's position accounting are unchanged. Requires
         cfg.image_enabled=True.
+
+        contract_ids: optional (B, C) contract text token ids (see
+        xiiv.contract_encoder.encode_contract). When given, the contract
+        encoder produces contract embeddings that every block
+        cross-attends to: the guarantee shapes the denoising computation
+        itself. Requires cfg.contract_enabled=True.
         """
         B, T = ids.shape
         x = self.embed(ids)
@@ -173,16 +230,23 @@ class XIIVModel(nn.Module):
                 raise ValueError(
                     f"sequence length {T} shorter than image prefix {n}")
             x[:, :n] = ie.to(dtype=x.dtype)
+        contract_embeds = None
+        if contract_ids is not None:
+            if self.contract_encoder is None:
+                raise ValueError(
+                    "contract_ids given but cfg.contract_enabled=False")
+            contract_embeds = self.contract_encoder(contract_ids)
         cos, sin = build_rope_cache(T, self.cfg.d_model // self.cfg.n_heads,
                                     self.cfg.rope_theta, ids.device,
                                     dtype=torch.float32)
         if self.grad_checkpoint and x.requires_grad:
             from torch.utils.checkpoint import checkpoint
             for layer in self.layers:
-                x = checkpoint(layer, x, cos, sin, use_reentrant=False)
+                x = checkpoint(layer, x, cos, sin, contract_embeds,
+                               use_reentrant=False)
         else:
             for layer in self.layers:
-                x = layer(x, cos, sin)
+                x = layer(x, cos, sin, contract_embeds)
         x = self.final_norm(x)
         return self.lm_head(x)
 

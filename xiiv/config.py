@@ -41,6 +41,21 @@ class ModelConfig:
     image_size: int = 64            # input images resized to SxS
     image_patch_size: int = 16      # -> (image_size/patch_size)^2 tokens
 
+    # --- contract-native scaffold (architecture only; untrained unless enabled)
+    # When contract_enabled, the model gains a small contract encoder
+    # (ContractEncoder) plus a cross-attention layer in every block that
+    # attends to the contract embeddings. The contract -- the same Contract
+    # object the sampler enforces -- becomes a first-class architectural
+    # input: the guarantee shapes the denoising computation itself instead
+    # of arriving as prompt text. Default False: existing checkpoints are
+    # bit-unaffected (the cross-attention gate is zero-initialized anyway).
+    contract_enabled: bool = False
+    contract_d_model: int = 256     # contract encoder width
+    contract_n_layers: int = 2      # contract encoder depth
+    contract_n_heads: int = 4
+    contract_ffn_dim: int = 512
+    contract_max_tokens: int = 96   # max contract text tokens
+
     @property
     def n_image_tokens(self) -> int:
         if not self.image_enabled:
@@ -56,6 +71,15 @@ class ModelConfig:
             n = self.n_image_tokens
             # PatchEmbed: conv 3->d over patch^2 + pos embeddings + norm
             total += 3 * d * self.image_patch_size ** 2 + n * d + d
+        if self.contract_enabled:
+            de, le, he, fe = (self.contract_d_model, self.contract_n_layers,
+                              self.contract_n_heads, self.contract_ffn_dim)
+            # contract encoder: token+pos embeddings + layers + proj to d
+            enc_layer = 4 * de * de + 2 * de * fe + 2 * de
+            total += v * de + self.contract_max_tokens * de
+            total += le * enc_layer + de + de * d
+            # cross-attention per block: q + kv + out + gate
+            total += L * (4 * d * d + d)
         return total  # tied embeddings: no separate LM head
 
     def to_json(self) -> str:

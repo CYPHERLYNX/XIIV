@@ -77,6 +77,22 @@ def main():
     ap.add_argument("--init-ckpt", default=None,
                     help="load model weights from this checkpoint and "
                          "fine-tune (optimizer restarts fresh)")
+    # --- guarantee-native pre-training ---
+    ap.add_argument("--contract-enabled", action="store_true",
+                    help="build the contract-native architecture (contract "
+                         "encoder + per-block cross-attention)")
+    ap.add_argument("--contract-prob", type=float, default=0.0,
+                    help="fraction of batches trained contract-conditioned; "
+                         "0.0 = classic unconditional training")
+    ap.add_argument("--contract-adversarial-frac", type=float, default=0.3,
+                    help="fraction of synthetic contracts that are "
+                         "adversarial (rare-span, tight-count, ordering)")
+    ap.add_argument("--contract-max-tokens", type=int, default=96,
+                    help="max contract text tokens (longer -> ValueError "
+                         "fallback to a trivial contract)")
+    ap.add_argument("--tokenizer", default="weights/tokenizer.json",
+                    help="tokenizer path (only loaded when "
+                         "--contract-prob > 0)")
     args = ap.parse_args()
 
     torch.manual_seed(args.seed)
@@ -95,9 +111,22 @@ def main():
                       mask_id=meta["mask_id"], eos_id=meta["eos_id"],
                       seq_len=args.seq_len,
                       d_model=args.d_model, n_layers=args.n_layers,
-                      n_heads=args.n_heads, ffn_dim=args.ffn_dim)
+                      n_heads=args.n_heads, ffn_dim=args.ffn_dim,
+                      contract_enabled=args.contract_enabled)
     print(f"model config: ~{cfg.param_count_estimate()/1e6:.2f}M params "
-          f"(d={cfg.d_model} L={cfg.n_layers} h={cfg.n_heads})")
+          f"(d={cfg.d_model} L={cfg.n_layers} h={cfg.n_heads})"
+          f"{' +contract-native' if args.contract_enabled else ''}")
+    if args.contract_prob > 0 and not args.contract_enabled:
+        raise SystemExit(
+            "ERROR: --contract-prob > 0 needs --contract-enabled (the "
+            "model has no contract encoder to condition on).")
+    tokenizer = None
+    if args.contract_prob > 0:
+        from .tokenizer import XIIVTokenizer
+        from .guarantee_train import sample_contracts, encode_contract_batch
+        tokenizer = XIIVTokenizer(args.tokenizer)
+        print(f"guarantee-native: contract_prob={args.contract_prob} "
+              f"adversarial_frac={args.contract_adversarial_frac}")
     print(f"data: {meta['train_tokens']/1e6:.1f}M train tokens, "
           f"{meta['valid_tokens']/1e6:.1f}M valid tokens")
 
@@ -205,10 +234,25 @@ def main():
 
         batch = get_batch(train_mm, args.batch_size, args.seq_len, device, g)
         opt.zero_grad(set_to_none=True)
+        # guarantee-native: a fraction of batches is contract-conditioned.
+        # Contracts are synthesized from the CLEAN batch (pre-masking), so
+        # every clause is satisfiable by the target by construction.
+        contract_ids = None
+        conditioned = False
+        if tokenizer is not None and \
+                torch.rand((), generator=g).item() < args.contract_prob:
+            contracts = sample_contracts(
+                batch, tokenizer, meta["vocab_size"], cfg.mask_id,
+                cfg.eos_id, g,
+                adversarial_frac=args.contract_adversarial_frac)
+            contract_ids = encode_contract_batch(
+                contracts, tokenizer, args.contract_max_tokens, device)
+            conditioned = True
         with amp:
             loss, info = diffusion_loss(model, batch, cfg.mask_id,
                                         cfg.t_min, cfg.t_max,
-                                        lock_prob=args.lock_prob)
+                                        lock_prob=args.lock_prob,
+                                        contract_ids=contract_ids)
         if not torch.isfinite(loss):
             nonfinite_streak += 1
             print(f"[step {step}] NON-FINITE LOSS (streak {nonfinite_streak})"
@@ -244,7 +288,8 @@ def main():
             rec = {"step": step, "loss": round(loss.item(), 4), "lr": lr,
                    "tok_s": round(tps, 1),
                    "mask_ratio": round(info["mask_ratio"], 3),
-                   "tokens_seen_M": round(tokens_seen / 1e6, 2)}
+                   "tokens_seen_M": round(tokens_seen / 1e6, 2),
+                   "contract": conditioned}
             vram_str = ""
             if device.type == "cuda":
                 peak_vram_gb = torch.cuda.max_memory_allocated() / 1e9

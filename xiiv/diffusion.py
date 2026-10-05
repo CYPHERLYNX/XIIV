@@ -81,7 +81,8 @@ def mask_batch(ids: torch.Tensor, mask_id: int, t_min: float = 0.15,
 def diffusion_loss(model, ids: torch.Tensor, mask_id: int,
                    t_min: float = 0.15, t_max: float = 1.0, generator=None,
                    image_embeds: torch.Tensor | None = None,
-                   lock_prob: float = 0.0):
+                   lock_prob: float = 0.0,
+                   contract_ids: torch.Tensor | None = None):
     """Mean cross-entropy over masked positions only.
 
     image_embeds: optional (B, N, d) visual prefix for multimodal training
@@ -90,13 +91,19 @@ def diffusion_loss(model, ids: torch.Tensor, mask_id: int,
 
     lock_prob: fraction of sequences trained with locked spans
     (constraint-aware training; see mask_batch).
+
+    contract_ids: optional (B, C) contract text token ids for
+    guarantee-native pre-training (the contract describes the CLEAN target;
+    the model learns P(target | noisy input, contract)).
     """
     noisy, targets, mask = mask_batch(ids, mask_id, t_min, t_max, generator,
                                       lock_prob=lock_prob)
+    fwd_kwargs = {}
     if image_embeds is not None:
-        logits = model(noisy, image_embeds)
-    else:
-        logits = model(noisy)
+        fwd_kwargs["image_embeds"] = image_embeds
+    if contract_ids is not None:
+        fwd_kwargs["contract_ids"] = contract_ids
+    logits = model(noisy, **fwd_kwargs)
     n_masked = mask.sum()
     if n_masked == 0:
         return logits.sum() * 0.0  # degenerate guard; keeps graph alive

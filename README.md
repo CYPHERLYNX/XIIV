@@ -75,7 +75,7 @@ assert cert.verify()  # independent verification, not self-grading
 ## Architecture
 
 <p align="center">
-  <img src="assets/architecture.webp" alt="XIIV architecture" width="700"/>
+  <img src="assets/architecture.png" alt="XIIV transformer pipeline" width="100%"/>
 </p>
 
 - **d=1280, 36 layers, 20 heads, SwiGLU FFN 3584, vocab 32768**

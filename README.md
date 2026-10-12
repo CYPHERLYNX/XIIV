@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/hero-banner.webp" alt="XIIV" width="800"/>
+  <img src="assets/banner.png" alt="XIIV — from noise, in parallel" width="100%"/>
 </p>
 
 <h1 align="center">XIIV</h1>
@@ -32,6 +32,10 @@ XIIV is a 1-billion-parameter language model built on a thesis the frontier labs
 </p>
 
 On the guarantee-native axis — contract compliance, intervention rate, proof-carrying verification — frontier models score near zero because they don't have the capability. XIIV defines this game.
+
+<p align="center">
+  <img src="assets/how-it-works.png" alt="How XIIV generates" width="100%"/>
+</p>
 
 | Benchmark | XIIV-1B | Frontier avg | Methodology |
 |-----------|---------|-------------|-------------|
@@ -75,6 +79,7 @@ assert cert.verify()  # independent verification, not self-grading
 </p>
 
 - **d=1280, 36 layers, 20 heads, SwiGLU FFN 3584, vocab 32768**
+- **Tied embeddings** (input/output share storage)
 - **Tied embeddings** (input/output share storage)
 - **Contract encoder** with cross-attention into every layer
 - **Growth**: Net2Net-style, drift-gated (ratio < 0.6 vs random init)

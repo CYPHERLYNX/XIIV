@@ -262,6 +262,7 @@ class DenoisingState:
                  top_p: float = 0.95, seed: int | None = None,
                  prompt_ids=None, frozen: torch.Tensor | None = None,
                  remask_ratio: float = 0.0, order: str = "confidence",
+                 softmask_k: int = 0,
                  constraints: dict | None = None, device="cpu",
                  vocab_size: int | None = None,
                  return_trajectory: bool = False,
@@ -275,6 +276,9 @@ class DenoisingState:
         self.top_p = float(top_p)
         self.order = order
         self.remask_ratio = float(remask_ratio)
+        self.softmask_k = int(softmask_k)
+        self._soft_embeds = None  # (S, d) blended embeddings for soft positions
+        self._soft_positions = None  # (S,) position indices
         self.allow_frozen_masks = bool(allow_frozen_masks)
         self.device = device
         self.vocab_size = vocab_size
@@ -593,7 +597,50 @@ class DenoisingState:
 
         return True
 
-    def step(self, model) -> bool:
+    def soft_mask_blend(self, model, positions: torch.Tensor,
+                        probs: torch.Tensor, k: int = 5) -> tuple:
+        """Compute confidence-weighted blended embeddings for soft-masking.
+
+        Instead of discrete mask->token transitions, each position gets:
+            x̃ = (1−λ)·m + λ·Σ πᵢ·vᵢ
+        where m is the mask embedding, vᵢ are top-k token embeddings,
+        πᵢ their renormalized probabilities, λ from predictive entropy.
+
+        From Hersche et al., ICLR 2026. Composes with contract constraints:
+        forbidden tokens are excluded from the top-k before blending,
+        so guarantees hold.
+
+        Returns (blended_embeds, position_indices).
+        """
+        device = self.x.device
+        d = model.cfg.d_model
+        mask_emb = model.embed.weight[self.mask_id]  # (d,)
+
+        blended = []
+        pos_list = []
+        for pos in positions.tolist():
+            p = probs[pos].clone()
+            p[self.mask_id] = 0.0
+            if self.forbidden_ids:
+                p[self.forbidden_ids] = float("-inf")
+            # top-k
+            topk_p, topk_idx = torch.topk(p, min(k, p.shape[0]))
+            topk_p = torch.softmax(topk_p, dim=-1)  # renormalize
+            # entropy-derived lambda: high entropy -> more mask, low -> more token
+            entropy = -(topk_p * torch.log(topk_p + 1e-10)).sum()
+            max_ent = torch.log(torch.tensor(float(len(topk_p))))
+            lam = 1.0 - (entropy / (max_ent + 1e-10)).item()  # 0..1
+            lam = max(0.0, min(0.95, lam))  # never fully commit
+            # blended embedding
+            tok_embs = model.embed.weight[topk_idx]  # (k, d)
+            weighted = (topk_p.unsqueeze(-1) * tok_embs).sum(dim=0)  # (d,)
+            blend = (1 - lam) * mask_emb + lam * weighted
+            blended.append(blend)
+            pos_list.append(pos)
+
+        if not blended:
+            return None, None
+        return torch.stack(blended), torch.tensor(pos_list, device=device)
         """Run one denoise iteration. Returns True if more work remains."""
         if self.finished:
             return False
@@ -604,6 +651,9 @@ class DenoisingState:
             fwd_kwargs["image_embeds"] = self.image_embeds
         if self.contract_ids is not None:
             fwd_kwargs["contract_ids"] = self.contract_ids
+        if self._soft_embeds is not None and self._soft_positions is not None:
+            fwd_kwargs["soft_embeds"] = self._soft_embeds.unsqueeze(0)
+            fwd_kwargs["soft_positions"] = self._soft_positions.unsqueeze(0)
         logits = model(xb, **fwd_kwargs).squeeze(0)           # (L, V)
         # Intervention: check if the raw top-1 would have been forbidden
         # (i.e., the mask actively prevented a violation, not just passive)
@@ -772,6 +822,21 @@ class DenoisingState:
 
         self.masked = (self.x == self.mask_id) & ~self.frozen
         self.steps_remaining -= 1
+
+        # Soft-masking: compute blended embeddings for remaining masked
+        # positions. Next forward pass will see uncertainty-weighted blends
+        # instead of pure [MASK] embeddings. This gives richer signal.
+        if self.softmask_k > 0 and bool(self.masked.any()):
+            masked_pos = torch.where(self.masked)[0]
+            # Recompute probs for blending (we have them from this step)
+            blend_embeds, blend_pos = self.soft_mask_blend(
+                model, masked_pos, probs, k=self.softmask_k)
+            self._soft_embeds = blend_embeds
+            self._soft_positions = blend_pos
+        else:
+            self._soft_embeds = None
+            self._soft_positions = None
+
         if self.trajectory is not None:
             self.trajectory.append(self.x.clone())
         return not self.finished
@@ -955,6 +1020,7 @@ def sample_trajectory(model, length: int, mask_id: int, eos_id: int,
                       remask_ratio: float = 0.0,
                       return_trajectory: bool = False,
                       order: str = "confidence",
+                      softmask_k: int = 0,
                       constraints: dict | None = None,
                       image_embeds: torch.Tensor | None = None,
                       allow_frozen_masks: bool = False,
@@ -1013,7 +1079,8 @@ def sample_trajectory(model, length: int, mask_id: int, eos_id: int,
         prompt_ids=prompt_ids, frozen=frozen, remask_ratio=remask_ratio,
         order=order, constraints=constraints, device=device,
         vocab_size=vocab_size, return_trajectory=return_trajectory,
-        image_embeds=image_embeds, allow_frozen_masks=allow_frozen_masks)
+        image_embeds=image_embeds, allow_frozen_masks=allow_frozen_masks,
+        softmask_k=softmask_k)
     while st.step(model):
         pass
     out = (st.x.cpu(), st.conf.cpu())
@@ -1034,6 +1101,7 @@ def sample_trajectory_stateful(model, length: int, mask_id: int, eos_id: int,
                                constraints: dict | None = None,
                                image_embeds: torch.Tensor | None = None,
                                allow_frozen_masks: bool = False,
+                               softmask_k: int = 0,
                                device="cpu"):
     """Same algorithm as sample_trajectory, but also exposes the
     DenoisingState so callers can pause, snapshot, pin, or otherwise
@@ -1050,7 +1118,8 @@ def sample_trajectory_stateful(model, length: int, mask_id: int, eos_id: int,
         prompt_ids=prompt_ids, frozen=frozen, remask_ratio=remask_ratio,
         order=order, constraints=constraints, device=device,
         vocab_size=vocab_size, return_trajectory=return_trajectory,
-        image_embeds=image_embeds, allow_frozen_masks=allow_frozen_masks)
+        image_embeds=image_embeds, allow_frozen_masks=allow_frozen_masks,
+        softmask_k=softmask_k)
     while st.step(model):
         pass
     out = (st.x.cpu(), st.conf.cpu())

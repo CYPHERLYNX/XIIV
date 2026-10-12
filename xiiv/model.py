@@ -214,7 +214,9 @@ class XIIVModel(nn.Module):
 
     def forward(self, ids: torch.Tensor,
                 image_embeds: torch.Tensor | None = None,
-                contract_ids: torch.Tensor | None = None) -> torch.Tensor:
+                contract_ids: torch.Tensor | None = None,
+                soft_embeds: torch.Tensor | None = None,
+                soft_positions: torch.Tensor | None = None) -> torch.Tensor:
         """ids: (B, T) -> logits (B, T, V).
 
         image_embeds: optional (B, N, d) visual prefix from PatchEmbed
@@ -228,9 +230,24 @@ class XIIVModel(nn.Module):
         encoder produces contract embeddings that every block
         cross-attends to: the guarantee shapes the denoising computation
         itself. Requires cfg.contract_enabled=True.
+
+        soft_embeds / soft_positions: optional soft-masking support.
+        soft_embeds is (B, S, d) blended embeddings, soft_positions is
+        (B, S) position indices. At each position, the token embedding is
+        replaced by the corresponding blended embedding. Used by the
+        diffusion sampler for confidence-weighted soft-masking (ICLR 2026):
+        instead of discrete mask->token transitions, positions carry
+        blended embeddings that encode uncertainty. The guarantee system
+        is unaffected — forbidden tokens are still excluded at sampling.
         """
         B, T = ids.shape
         x = self.embed(ids)
+        if soft_embeds is not None and soft_positions is not None:
+            se = torch.as_tensor(soft_embeds).to(dtype=x.dtype, device=x.device)
+            sp = torch.as_tensor(soft_positions, dtype=torch.long, device=x.device)
+            # se: (B, S, d), sp: (B, S) — scatter into x
+            b_idx = torch.arange(B, device=x.device).unsqueeze(1).expand(-1, sp.shape[1])
+            x[b_idx, sp] = se
         if image_embeds is not None:
             if self.patch_embed is None:
                 raise ValueError(

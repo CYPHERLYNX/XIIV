@@ -94,27 +94,13 @@ See `MODEL_CARD_1B.md` for the full spec and `SCALING_PROTOCOL.md` for the rung-
 
 ## Training
 
-The 1B needs GPU training before it's useful. One command on an RTX 4050 6GB:
+The 1B needs GPU training before it's useful:
 
 ```bash
-./train_xiiv_1b_4050.sh
+python -m xiiv.train --preset xiiv-1b --data data_fineweb --ckpt-dir checkpoints_1b
 ```
 
-BF16 + 8-bit Adam + gradient checkpointing, ~5.5GB VRAM, LR 1.65e-4, 40k steps on FineWeb-Edu. See the training kit for details.
-
-## Citation
-
-XIIV is built by Fahad Abdulla (CYPHERLYNX). If you use it in your work, please cite:
-
-```
-@misc{xiiv2026,
-  title        = {XIIV: Guarantee-Native Language Model via Masked Discrete Diffusion},
-  author       = {Abdulla, Fahad},
-  year         = {2026},
-  organization = {CYPHERLYNX},
-  howpublished = {\url{https://github.com/CYPHERLYNX/XIIV}}
-}
-```
+See [docs/HEAVY_TRAINING_RUNBOOK.md](docs/HEAVY_TRAINING_RUNBOOK.md) for the full guide.
 
 ## License
 

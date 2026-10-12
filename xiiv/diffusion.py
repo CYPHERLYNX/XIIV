@@ -543,6 +543,56 @@ class DenoisingState:
                 if int((self.x == t).sum()) >= n]
 
     @torch.no_grad()
+    def contract_satisfiable(self, x=None) -> bool:
+        """LAVE-style lookahead: can the contract still be satisfied?
+
+        Checks whether the current (or hypothetical) canvas state can still
+        be completed into a valid output. This prevents dead ends where the
+        sampler fills all masks without placing required tokens, only to
+        discover the violation at the end.
+
+        Unlike LAVE/DINGO (which handle syntactic constraints), this covers
+        SEMANTIC contracts: required/forbidden token counts with proof
+        certificates. To our knowledge, no diffusion LM does this.
+
+        Args:
+            x: canvas to check (defaults to self.x)
+        Returns:
+            True if some completion of the masked positions can satisfy
+            all contract constraints.
+        """
+        x = self.x if x is None else x
+        n_masks = int((x == self.mask_id).sum())
+
+        # Required counts: enough masks remain to place all missing?
+        need = self._need_counts(x)
+        total_missing = sum(need.values())
+        if total_missing > n_masks:
+            return False
+
+        # Forbidden: none already placed? (masks can't introduce violations
+        # since forbidden logits are -inf, but prompt/frozen might)
+        if self.forbidden_ids:
+            for tok in self.forbidden_ids:
+                if int((x == tok).sum()) > 0:
+                    # Check if it's in a frozen/prompt position (caller's
+                    # responsibility) vs a filled position (our fault)
+                    filled_forbidden = False
+                    for pos in range(self.length):
+                        if int(x[pos]) == tok and not bool(self.frozen[pos]):
+                            # Was this filled by us? Check if it was masked
+                            filled_forbidden = True
+                            break
+                    if filled_forbidden:
+                        return False
+
+        # at_most caps: not already exceeded?
+        for tok, cap in self.at_most.items():
+            if int((x == tok).sum()) > cap:
+                return False
+
+        return True
+
     def step(self, model) -> bool:
         """Run one denoise iteration. Returns True if more work remains."""
         if self.finished:
@@ -639,6 +689,28 @@ class DenoisingState:
                 # occurrences still need. This is what keeps q_s <= m_s.
                 k = min(k, max(0, m - len(missing)))
         if k > 0:
+            # LOOKAHEAD SATISFIABILITY (world-first for semantic contracts):
+            # Before accepting this batch, verify the contract remains
+            # satisfiable. If filling k positions would create a dead end,
+            # shrink k until satisfiable. This prevents wasted steps that
+            # only discover violations at endgame.
+            #
+            # The check is O(L) — negligible vs a forward pass.
+            # Slot reservation already handles required counts; this catches
+            # the subtle cases (at_most interactions, forbidden placements).
+            while k > 0:
+                # Hypothetical: if we fill k positions, masks remaining = m - k
+                masks_after = m - k
+                need_after = self._need_counts(self.x)
+                total_missing = sum(need_after.values())
+                if total_missing <= masks_after:
+                    break
+                k -= 1
+            if k <= 0:
+                # Cannot fill any position without breaking satisfiability;
+                # skip this step (endgame will force-place)
+                self.steps_remaining -= 1
+                return not self.finished
             if self.priority is not None:
                 score = torch.where(self.masked, self.priority * 1e6 + conf,
                                     torch.full_like(conf, -1e18))

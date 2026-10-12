@@ -54,6 +54,12 @@ def main():
     ap.add_argument("--seq-len", type=int, default=128)
     # Model size (defaults = 10M XIIV-10M config). For XIIV-50M use:
     # --d-model 576 --n-layers 12 --n-heads 9 --ffn-dim 1536 (~52.5M params).
+    # For XIIV-1B use --preset xiiv-1b (d=1280, L=36, h=20, ffn=3584, ~916M).
+    ap.add_argument("--preset", default=None,
+                    choices=["xiiv-1b", "xiiv-500m", "xiiv-133m"],
+                    help="model size preset: overrides --d-model/--n-layers/--n-heads/--ffn-dim "
+                         "and sets recommended LR, batch size, and warmup for the target hardware. "
+                         "xiiv-1b targets RTX 5090 (24GB).")
     ap.add_argument("--d-model", type=int, default=320)
     ap.add_argument("--n-layers", type=int, default=6)
     ap.add_argument("--n-heads", type=int, default=5)
@@ -106,6 +112,28 @@ def main():
                     help="tokenizer path (only loaded when "
                          "--contract-prob > 0)")
     args = ap.parse_args()
+
+    # --- size presets: validated configs for each XIIV rung ---
+    # LR follows inverse-width scaling from the 133M reference (3e-4 at d=512).
+    _PRESETS = {
+        "xiiv-133m": dict(d_model=512, n_layers=12, n_heads=8, ffn_dim=1408,
+                          lr=3e-4, batch_size=48, warmup_steps=500),
+        "xiiv-500m": dict(d_model=1024, n_layers=27, n_heads=16, ffn_dim=2816,
+                          lr=2e-4, batch_size=24, warmup_steps=1000),
+        "xiiv-1b": dict(d_model=1280, n_layers=36, n_heads=20, ffn_dim=3584,
+                        lr=1.5e-4, batch_size=12, warmup_steps=2000,
+                        grad_accum=4, grad_checkpoint=True),
+    }
+    if args.preset:
+        p = _PRESETS[args.preset]
+        for k, v in p.items():
+            if k in ("d_model", "n_layers", "n_heads", "ffn_dim"):
+                setattr(args, k.replace("_", "-").replace("-", "_"), v)
+            else:
+                setattr(args, k, v)
+        print(f"preset {args.preset}: d={p['d_model']} L={p['n_layers']} "
+              f"h={p['n_heads']} ffn={p['ffn_dim']} lr={p['lr']} "
+              f"batch={p['batch_size']}")
 
     torch.manual_seed(args.seed)
     torch.set_num_threads(args.threads)

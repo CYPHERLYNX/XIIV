@@ -174,6 +174,8 @@ class XIIVModel(nn.Module):
         self.cfg = cfg
         # set True to trade ~30% speed for much lower activation memory
         self.grad_checkpoint = False
+        # RoPE cache: rebuilt only when seq_len/device/dtype changes
+        self._rope_cache = {}
         self.embed = nn.Embedding(cfg.vocab_size, cfg.d_model)
         self.layers = nn.ModuleList([Block(cfg) for _ in range(cfg.n_layers)])
         self.final_norm = RMSNorm(cfg.d_model, cfg.norm_eps)
@@ -195,6 +197,20 @@ class XIIVModel(nn.Module):
             self.contract_encoder = ContractEncoder(cfg)
         else:
             self.contract_encoder = None
+
+    def _get_rope_cache(self, seq_len, head_dim, device, dtype):
+        """Cached RoPE tables — rebuilt only when shape/device/dtype changes."""
+        key = (seq_len, head_dim, str(device), str(dtype))
+        if key not in self._rope_cache:
+            cos, sin = build_rope_cache(seq_len, head_dim,
+                                        self.cfg.rope_theta, device,
+                                        dtype=torch.float32)
+            if dtype != torch.float32:
+                cos, sin = cos.to(dtype), sin.to(dtype)
+            # keep cache small: only the most recent config
+            self._rope_cache.clear()
+            self._rope_cache[key] = (cos, sin)
+        return self._rope_cache[key]
 
     def forward(self, ids: torch.Tensor,
                 image_embeds: torch.Tensor | None = None,
@@ -236,13 +252,8 @@ class XIIVModel(nn.Module):
                 raise ValueError(
                     "contract_ids given but cfg.contract_enabled=False")
             contract_embeds = self.contract_encoder(contract_ids)
-        cos, sin = build_rope_cache(T, self.cfg.d_model // self.cfg.n_heads,
-                                    self.cfg.rope_theta, ids.device,
-                                    dtype=torch.float32)
-        # RoPE cache stays fp32 for precision; cast to activation dtype so
-        # fp16/bf16 inference doesn't hit mixed-dtype attention errors.
-        if x.dtype != torch.float32:
-            cos, sin = cos.to(x.dtype), sin.to(x.dtype)
+        cos, sin = self._get_rope_cache(T, self.cfg.d_model // self.cfg.n_heads,
+                                          ids.device, x.dtype)
         if self.grad_checkpoint and x.requires_grad:
             from torch.utils.checkpoint import checkpoint
             for layer in self.layers:

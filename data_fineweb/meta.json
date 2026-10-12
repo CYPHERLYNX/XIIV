@@ -1,0 +1,13 @@
+{
+ "vocab_size": 32768,
+ "mask_id": 2,
+ "eos_id": 3,
+ "seq_len": 128,
+ "train_blocks": 776008,
+ "train_tokens": 99329024,
+ "valid_blocks": 5506,
+ "valid_tokens": 704768,
+ "source": "HuggingFaceFW/fineweb-edu:sample-10BT",
+ "docs_seen": 32118,
+ "docs_dropped": 38
+}

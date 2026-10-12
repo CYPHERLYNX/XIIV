@@ -1,0 +1,17 @@
+{
+ "ckpt": "checkpoints_100m_gn/ckpt_8218.pt",
+ "n": 10,
+ "seed": 0,
+ "started": "2026-10-11T12:22:13",
+ "results": {
+  "pcov": {
+   "n": 10,
+   "verified": 0,
+   "pcov": 0.0,
+   "tamper_n": 100,
+   "tamper_rejected": 100,
+   "tamper_detection": 1.0
+  }
+ },
+ "finished": "2026-10-11T12:25:38"
+}

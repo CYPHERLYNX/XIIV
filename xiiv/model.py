@@ -239,6 +239,10 @@ class XIIVModel(nn.Module):
         cos, sin = build_rope_cache(T, self.cfg.d_model // self.cfg.n_heads,
                                     self.cfg.rope_theta, ids.device,
                                     dtype=torch.float32)
+        # RoPE cache stays fp32 for precision; cast to activation dtype so
+        # fp16/bf16 inference doesn't hit mixed-dtype attention errors.
+        if x.dtype != torch.float32:
+            cos, sin = cos.to(x.dtype), sin.to(x.dtype)
         if self.grad_checkpoint and x.requires_grad:
             from torch.utils.checkpoint import checkpoint
             for layer in self.layers:

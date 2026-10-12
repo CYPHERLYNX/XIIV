@@ -41,6 +41,12 @@ MODEL_ID = "xiiv-52m"
 class Handler(BaseHTTPRequestHandler):
     model = None
     tok = None
+    # When True, every generation forbids token ids >= parent_vocab_size.
+    # Used for grown checkpoints whose expanded-vocabulary embeddings are
+    # still untrained: the model then samples only from the trained parent
+    # vocabulary (e.g. 500M grown from the 8k-vocab 133M parent).
+    parent_vocab_only = False
+    parent_vocab_size = 8192
 
     def log_message(self, *a):
         pass
@@ -110,6 +116,13 @@ class Handler(BaseHTTPRequestHandler):
         steps = max(1, min(int(req.get("xiiv_steps",
                                        req.get("steps", 12))), 32))
         seed = req.get("seed", 7)
+        if self.parent_vocab_only:
+            # Structural vocab restriction: grown model, untrained new
+            # embeddings — sample only from the trained parent vocabulary.
+            pv_forbid = set(range(self.parent_vocab_size, tok.vocab_size))
+            constraints = dict(constraints or {})
+            existing = set(constraints.get("forbidden_ids") or ())
+            constraints["forbidden_ids"] = sorted(existing | pv_forbid)
         t0 = time.time()
         ids, _ = sample_trajectory(
             model, total, tok.mask_id, tok.eos_id, steps=steps, seed=seed,
@@ -146,10 +159,14 @@ def main():
     ap.add_argument("--tokenizer", default="weights_52m/tokenizer.json")
     ap.add_argument("--port", type=int, default=11434)
     ap.add_argument("--threads", type=int, default=2)
+    ap.add_argument("--parent-vocab-only", action="store_true",
+                    help="restrict sampling to the first 8192 token ids "
+                         "(trained parent vocab of grown checkpoints)")
     args = ap.parse_args()
     torch.set_num_threads(args.threads)
     Handler.tok = XIIVTokenizer(args.tokenizer)
     Handler.model, _ = load_model(args.weights)
+    Handler.parent_vocab_only = args.parent_vocab_only
     print(f"XIIV OpenAI-compatible API at http://127.0.0.1:{args.port}/v1 "
           f"({Handler.model.count_parameters()/1e6:.1f}M params)")
     ThreadingHTTPServer(("127.0.0.1", args.port), Handler).serve_forever()

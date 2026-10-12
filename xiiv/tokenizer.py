@@ -37,9 +37,15 @@ class XIIVTokenizer:
         from tokenizers.models import BPE
         from tokenizers.trainers import BpeTrainer
         from tokenizers.pre_tokenizers import ByteLevel
+        from tokenizers.decoders import ByteLevel as ByteLevelDecoder
 
         tok = HFTokenizer(BPE(unk_token="[UNK]"))
         tok.pre_tokenizer = ByteLevel(add_prefix_space=False)
+        # Without this, decode() concatenates raw byte-level pieces
+        # (l e.g. "Ġ" instead of " ") — the 32k tokenizer shipped broken
+        # until this was added (2026-10-09).
+        tok.decoder = ByteLevelDecoder(add_prefix_space=False,
+                                       trim_offsets=True, use_regex=True)
         trainer = BpeTrainer(vocab_size=vocab_size,
                              special_tokens=["[UNK]", "[PAD]", MASK_TOKEN, EOS_TOKEN],
                              show_progress=True)

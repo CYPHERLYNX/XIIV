@@ -1,0 +1,31 @@
+{
+ "ckpt": "checkpoints_100m_gn/ckpt_8218.pt",
+ "n": 6,
+ "seed": 0,
+ "started": "2026-10-11T12:21:11",
+ "results": {
+  "goc": {
+   "left-to-right": {
+    "n": 6,
+    "valid": 6,
+    "rate": 1.0
+   },
+   "right-to-left": {
+    "n": 6,
+    "valid": 6,
+    "rate": 1.0
+   },
+   "ends-first": {
+    "n": 6,
+    "valid": 6,
+    "rate": 1.0
+   },
+   "random": {
+    "n": 6,
+    "valid": 6,
+    "rate": 1.0
+   }
+  }
+ },
+ "finished": "2026-10-11T12:22:00"
+}

@@ -78,8 +78,8 @@ class ModelConfig:
             enc_layer = 4 * de * de + 2 * de * fe + 2 * de
             total += v * de + self.contract_max_tokens * de
             total += le * enc_layer + de + de * d
-            # cross-attention per block: q + kv + out + gate
-            total += L * (4 * d * d + d)
+            # cross-attention per block: q + kv + out + gate + contract_norm
+            total += L * (4 * d * d + 2 * d)
         return total  # tied embeddings: no separate LM head
 
     def to_json(self) -> str:

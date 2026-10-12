@@ -1,0 +1,14 @@
+{
+ "ckpt": "checkpoints_100m_gn/ckpt_8218.pt",
+ "n": 10,
+ "seed": 0,
+ "started": "2026-10-11T12:20:39",
+ "results": {
+  "lsf": {
+   "n": 10,
+   "preserved": 10,
+   "lsf": 1.0
+  }
+ },
+ "finished": "2026-10-11T12:20:58"
+}

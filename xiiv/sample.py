@@ -22,19 +22,43 @@ from .diffusion import sample_trajectory
 
 
 def load_model(weights_path: str, device="cpu"):
-    """Load safetensors weights + sibling config.json. Zero network calls."""
-    from safetensors.torch import load_file
-    cfg_path = os.path.join(os.path.dirname(os.path.abspath(weights_path)),
-                            "config.json")
-    cfg = ModelConfig.from_json(open(cfg_path).read())
-    state = load_file(weights_path, device=device)
-    model = XIIVModel(cfg)
-    # strict=False: safetensors stores tied weights once (embed.weight covers
-    # lm_head.weight — same tensor object by construction in XIIVModel).
-    missing, unexpected = model.load_state_dict(state, strict=False)
-    assert not unexpected, f"unexpected keys in {weights_path}: {unexpected}"
-    assert set(missing) <= {"lm_head.weight"}, \
-        f"missing keys in {weights_path}: {missing}"
+    """Load weights + config. Zero network calls.
+
+    Handles two formats:
+      .pt         — training checkpoint: torch.save dict with "model",
+                    "config" (ModelConfig JSON), "step".
+      .safetensors — export weights with a sibling config.json.
+    """
+    if weights_path.endswith(".pt"):
+        ck = torch.load(weights_path, map_location=device,
+                        weights_only=False)
+        cfg = ModelConfig.from_json(ck["config"])
+        model = XIIVModel(cfg)
+        missing, unexpected = model.load_state_dict(ck["model"],
+                                                    strict=False)
+        assert not unexpected, \
+            f"unexpected keys in {weights_path}: {unexpected}"
+        assert set(missing) <= {"lm_head.weight"}, \
+            f"missing keys in {weights_path}: {missing}"
+    else:
+        from safetensors.torch import load_file
+        cfg_path = os.path.join(
+            os.path.dirname(os.path.abspath(weights_path)), "config.json")
+        if not os.path.exists(cfg_path):
+            raise FileNotFoundError(
+                f"no config.json next to {weights_path}; for training "
+                f"checkpoints (.pt) the config is embedded — pass the .pt "
+                f"path directly, e.g. --weights checkpoints_500m_gn/ckpt_8218.pt")
+        cfg = ModelConfig.from_json(open(cfg_path).read())
+        state = load_file(weights_path, device=device)
+        model = XIIVModel(cfg)
+        # strict=False: safetensors stores tied weights once (embed.weight covers
+        # lm_head.weight — same tensor object by construction in XIIVModel).
+        missing, unexpected = model.load_state_dict(state, strict=False)
+        assert not unexpected, \
+            f"unexpected keys in {weights_path}: {unexpected}"
+        assert set(missing) <= {"lm_head.weight"}, \
+            f"missing keys in {weights_path}: {missing}"
     model.to(device).eval()
     return model, cfg
 
@@ -43,6 +67,11 @@ def cmd_generate(args, model, cfg, tok):
     from xiiv.diffusion import generate_with_scratchpad, self_refine
     prompt_ids = None
     if args.prompt:
+        prompt_ids = torch.tensor(tok.encode(args.prompt), dtype=torch.long)
+        if len(prompt_ids) >= args.length:
+            raise ValueError(
+                f"prompt is {len(prompt_ids)} tokens but --length is only "
+                f"{args.length}: the canvas must be longer than the prompt")
         prompt_ids = torch.tensor(tok.encode(args.prompt), dtype=torch.long)
     t0 = time.time()
     scratch_txt, traj = None, None
@@ -127,8 +156,9 @@ def main():
     g.add_argument("--prompt", default="")
     g.add_argument("--length", type=int, default=128)
     g.add_argument("--steps", type=int, default=16)
-    g.add_argument("--temperature", type=float, default=1.0)
-    g.add_argument("--top-p", type=float, default=0.95)
+    g.add_argument("--temperature", type=float, default=0.8,
+                   help="sampling temperature (0.8 measured good)")
+    g.add_argument("--top-p", type=float, default=0.9)
     g.add_argument("--remask", type=float, default=0.0)
     g.add_argument("--seed", type=int, default=7)
     g.add_argument("--trajectory", action="store_true")
@@ -148,8 +178,8 @@ def main():
     f.add_argument("--length", type=int, default=0,
                    help="pad total length with extra masks (0 = exact)")
     f.add_argument("--steps", type=int, default=16)
-    f.add_argument("--temperature", type=float, default=1.0)
-    f.add_argument("--top-p", type=float, default=0.95)
+    f.add_argument("--temperature", type=float, default=0.8)
+    f.add_argument("--top-p", type=float, default=0.9)
     f.add_argument("--remask", type=float, default=0.0)
     f.add_argument("--seed", type=int, default=7)
 
@@ -175,6 +205,11 @@ def main():
     model, cfg = load_model(args.weights)
     assert tok.mask_id == cfg.mask_id and tok.eos_id == cfg.eos_id, \
         "tokenizer/weights special-token mismatch"
+    if tok.vocab_size != cfg.vocab_size:
+        ap.error(
+            f"tokenizer vocab ({tok.vocab_size}) != model vocab "
+            f"({cfg.vocab_size}) — the 500M rung needs "
+            f"--tokenizer weights/tokenizer_32k.json")
 
     if args.cmd == "generate":
         cmd_generate(args, model, cfg, tok)

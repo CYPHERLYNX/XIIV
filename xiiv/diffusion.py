@@ -466,6 +466,11 @@ class DenoisingState:
         if self.steps_remaining < 0:
             raise ValueError("steps must be >= 0")
         self.trajectory = [x.clone()] if return_trajectory else None
+        # Intervention log: every time the sampler actively prevents a
+        # constraint violation (not just passive masking). Used by
+        # benchmark 2 (intervention rate). Each entry:
+        # {"step": int, "kind": str, "detail": dict}
+        self.interventions = []
 
     # -- core iteration -------------------------------------------------
     @property
@@ -550,7 +555,20 @@ class DenoisingState:
         if self.contract_ids is not None:
             fwd_kwargs["contract_ids"] = self.contract_ids
         logits = model(xb, **fwd_kwargs).squeeze(0)           # (L, V)
+        # Intervention: check if the raw top-1 would have been forbidden
+        # (i.e., the mask actively prevented a violation, not just passive)
         if self.forbidden_ids:
+            raw_top1 = logits.argmax(dim=-1)
+            for pos in range(self.length):
+                if not bool(self.masked[pos]):
+                    continue
+                if int(raw_top1[pos]) in self.forbidden_ids:
+                    self.interventions.append({
+                        "step": self.steps_remaining,
+                        "kind": "forbidden_prevented",
+                        "detail": {"position": pos,
+                                   "blocked_token": int(raw_top1[pos])},
+                    })
             logits[:, self.forbidden_ids] = float("-inf")
             if not bool(torch.isfinite(logits).any(dim=-1).all()):
                 n = int((~torch.isfinite(logits).any(dim=-1)).sum())
@@ -596,6 +614,11 @@ class DenoisingState:
                             f"{tok_i} would exceed its at_most cap")
                     self.x[pos_i] = tok_i
                     self.conf[pos_i] = 1.0  # placed deterministically
+                    self.interventions.append({
+                        "step": self.steps_remaining,
+                        "kind": "endgame_forced_placement",
+                        "detail": {"position": pos_i, "token": tok_i},
+                    })
                     used.add(pos_i)
                     placed_tok = True
                     break
@@ -1151,15 +1174,24 @@ def _top_p_filter(logits: torch.Tensor, top_p: float) -> torch.Tensor:
 
 
 @torch.no_grad()
+@torch.no_grad()
 def evaluate_nll_bound(model, batches, mask_id: int,
-                       t_min: float = 0.15, t_max: float = 1.0, device="cpu"):
+                       t_min: float = 0.15, t_max: float = 1.0, device="cpu",
+                       generator=None):
     """Held-out masked-LM negative log-likelihood (nats/token, an UPPER BOUND
-    on the true sequence NLL — reported as a bound, not as perplexity)."""
+    on the true sequence NLL — reported as a bound, not as perplexity).
+
+    Pass a fixed-seed ``generator`` to use identical corruption masks at
+    every validation: otherwise val-to-val comparisons measure mask luck,
+    not model improvement (the bound's variance across mask samples is
+    ~0.5 nats — larger than real step-to-step gains).
+    """
     model.eval()
     total_ll, total_n = 0.0, 0
     for ids in batches:
         ids = ids.to(device)
-        noisy, targets, mask = mask_batch(ids, mask_id, t_min, t_max)
+        noisy, targets, mask = mask_batch(ids, mask_id, t_min, t_max,
+                                          generator=generator)
         logits = model(noisy)
         nll = F.cross_entropy(logits[mask], targets[mask], reduction="sum")
         total_ll += nll.item()

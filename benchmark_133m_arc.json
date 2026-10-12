@@ -1,0 +1,20 @@
+{
+  "arc_easy": {
+    "name": "arc_easy",
+    "alias": "arc_easy",
+    "sample_len": 2376,
+    "acc,none": 0.24915824915824916,
+    "acc_stderr,none": 0.008875238553583131,
+    "acc_norm,none": 0.25547138047138046,
+    "acc_norm_stderr,none": 0.008949113551665389
+  },
+  "arc_challenge": {
+    "name": "arc_challenge",
+    "alias": "arc_challenge",
+    "sample_len": 1172,
+    "acc,none": 0.24829351535836178,
+    "acc_stderr,none": 0.012624912868089679,
+    "acc_norm,none": 0.28498293515358364,
+    "acc_norm_stderr,none": 0.013191348179838755
+  }
+}

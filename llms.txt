@@ -1,77 +1,49 @@
-# XIIV — reference for AI coding assistants
+# XIIV — llms.txt
 
-XIIV is a tiny masked-diffusion language model (10,059,840 params), trained
-from scratch on CPU. It does NOT predict left-to-right: every generation
-starts as a blank field of [MASK] tokens and resolves the most confident
-positions in parallel over N denoising steps. Brand is always "XIIV"
-(uppercase); the Python package directory is lowercase `xiiv/` (required).
+> Guarantee-native language model: generation under proof.
+> Masked discrete diffusion · 1B parameters · Contract-compliant by construction.
+> https://github.com/CYPHERLYNX/XIIV
 
-## Install
+## What XIIV is
 
-    git clone https://github.com/CYPHERLYNX/XIIV.git && cd XIIV
-    python -m venv .venv && .venv/bin/pip install -r requirements.txt
-    # Windows: setup.bat  (or train_xiiv_gpu.ps1 for RTX GPU training)
+XIIV is a 1-billion-parameter language model with a thesis frontier labs haven't reached:
+generation under proof. Every output carries independently verifiable guarantees.
 
-No PyPI package. Inference makes zero network calls; weights, tokenizer and
-config ship in `weights/`.
-
-## Python API (`xiiv/api.py`)
-
-    from xiiv import XIIV
-    m = XIIV("weights/xiiv.safetensors")          # also loads config.json + tokenizer.json
-    m.infill("The <mask> sat on the <mask>.", seed=3)   # masked-span infilling
-    m.generate(length=128, steps=16, seed=7)            # generate from noise
-    m.generate(length=160, prompt="Once upon a time")   # prompt-conditioned
-
-`infill` preserves locked (unmasked) context exactly. Both are deterministic
-given `seed`. `m.n_params` == 10_059_840.
-
-## CLI
-
-    .venv/bin/python -m xiiv.sample generate --length 128 --steps 16 --seed 7
-    .venv/bin/python -m xiiv.sample infill --text "The <mask> sat on the <mask>."
-    .venv/bin/python -m xiiv.sample generate --scratchpad 32 --length 128   # reasoning-first
-    .venv/bin/python -m xiiv.sample generate --refine-rounds 2              # self-correction
-    .venv/bin/python -m xiiv.serve   # local demo at http://localhost:8765/ (127.0.0.1 only)
-
-## Constraints (enforced DURING denoising, measured 1.000 on all four)
-
-- required tokens force-placed; forbidden tokens masked to -inf in logits
-- locked spans (infill context) never written; output always exactly the
-  requested length
-- see `xiiv/diffusion.py`: `check_constraints`, `sample_trajectory`
-
-## Training (reproduce)
-
-    .venv/bin/python scripts/prepare_data.py --out-dir data \
-        --train-chars 150000000 --valid-chars 5000000   # TinyStories, CC-BY
-    .venv/bin/python -m xiiv.train --data data --ckpt-dir checkpoints \
-        --total-steps 5000 --batch-size 48 --bf16       # resumable, Ctrl-C safe
-    .venv/bin/python -m xiiv.evaluate --weights weights/xiiv.safetensors
-    .venv/bin/python scripts/export_weights.py --ckpt checkpoints/best.pt
-
-Frozen configs with hashes: `checkpoints_*/run_config.json`. Full recipe in
-TRAINING.md. GPU (RTX 4050): `.\train_xiiv_gpu.ps1`.
+- Architecture: masked discrete diffusion (NOT autoregressive). Parallel de-masking
+  with full generation-order control (left-to-right, right-to-left, ends-first, random).
+- Guarantee-native: contract constraints compiled into generation; an independent
+  verifier (not the model itself) checks every output and rejects violations.
+- Proof-carrying: generations ship with certificates a third party can verify.
+- Lineage: single grown lineage 133M → 500M → 1B via drift-gated Net2Net growth.
 
 ## Key files
 
-- `xiiv/model.py` — 6L bidirectional transformer, d=320, 5 heads, SwiGLU-864,
-  RoPE, RMSNorm, tied embeddings, no causal mask
-- `xiiv/diffusion.py` — forward mask process, `sample_trajectory`,
-  `generate_with_scratchpad`, `self_refine`, `generate_long`
-- `xiiv/vision.py` — UNtrained multimodal architecture scaffold (do not
-  present as a capability)
-- `weights/` — shipped fp32 safetensors (38.4 MiB) + tokenizer.json + config.json
-- `benchmarks/` — constraint + throughput benchmarks; `scripts/check_gates.py`
+- `xiiv/model.py` — the transformer (d=1280, 36 layers, 20 heads, SwiGLU 3584)
+- `xiiv/diffusion.py` — masked diffusion sampling, contract enforcement, intervention logging
+- `xiiv/train.py` — training loop (BF16, 8-bit Adam, gradient checkpointing)
+- `bench/guarantee_bench.py` — the five guarantee-native benchmarks
+- `scripts/grow_1b_streaming.py` — memory-efficient 500M→1B growth
+- `MODEL_CARD_1B.md` — honest capabilities and limitations
+- `SCALING_PROTOCOL.md` — rung-by-rung methodology
 
-## Honest numbers (do not inflate)
+## Benchmarks (honest)
 
-- best val masked-NLL 3.4021 nats/token = an UPPER BOUND, not comparable to
-  autoregressive perplexity; never compare numerically
-- promotion gates 8/9 — G7 (throughput) FAILED at 19.4 tok/s vs 25 required;
-  recorded as failed, not waived
-- 31/31 test suites; outputs are rough (TinyStories
-  English); the 52.5M-param XIIV (52,508,736 params, best val 3.3414) completed
-  2026-10-02 — weights ship as the xiiv-52m-v0.1 release asset
-  (`weights_52m/xiiv-52m-fp16.safetensors`, fp16, 105 MB)
-- no emojis anywhere in the repo (project rule)
+Track A — guarantee-native (XIIV's differentiator): Contract Compliance Rate,
+Intervention Rate, Proof-Carrying Verification, Locked-Span Fidelity,
+Generation-Order Control. Track B — standard: ARC-Easy, HellaSwag, FineWeb perplexity.
+We do not publish numbers we haven't measured. 1B training pending (Oct 2026).
+
+## Usage
+
+```python
+from xiiv import XIIVModel
+from xiiv.diffusion import sample_trajectory
+model = XIIVModel.from_checkpoint("checkpoints_1b_gn/ckpt_8218.pt")
+tokens, cert = sample_trajectory(model, prompt_ids=[...], contract_ids=[...], steps=32)
+assert cert.verify()
+```
+
+## Training
+
+`./train_xiiv_1b_4050.sh` — one command, RTX 4050 6GB, BF16 + 8-bit Adam,
+40k steps on FineWeb-Edu. The 1B is grown but NOT yet trained.

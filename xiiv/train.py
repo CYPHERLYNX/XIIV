@@ -44,6 +44,13 @@ def main():
     ap.add_argument("--data", default="data")
     ap.add_argument("--ckpt-dir", default="checkpoints")
     ap.add_argument("--batch-size", type=int, default=48)
+    ap.add_argument("--grad-accum", type=int, default=1,
+                    help="micro-batches per optimizer step; effective "
+                         "batch = batch-size * grad-accum")
+    ap.add_argument("--optimizer", default="adamw",
+                    choices=["adamw", "adamw8bit"],
+                    help="adamw8bit = bitsandbytes 8-bit AdamW "
+                         "(~4x smaller optimizer states; for 6GB VRAM)")
     ap.add_argument("--seq-len", type=int, default=128)
     # Model size (defaults = 10M XIIV-10M config). For XIIV-50M use:
     # --d-model 576 --n-layers 12 --n-heads 9 --ffn-dim 1536 (~52.5M params).
@@ -67,6 +74,11 @@ def main():
     ap.add_argument("--ckpt-every-min", type=float, default=30.0)
     ap.add_argument("--val-batches", type=int, default=32)
     ap.add_argument("--seed", type=int, default=1337)
+    ap.add_argument("--run-name", default=None,
+                    help="run name for provenance (default: xiiv-<params>)")
+    ap.add_argument("--dataset-id", default=None,
+                    help="dataset snapshot id for provenance "
+                         "(default: derived from --data)")
     ap.add_argument("--device", default="cpu",
                     help="cpu | cuda | auto (auto picks cuda when available)")
     ap.add_argument("--grad-checkpoint", action="store_true",
@@ -103,6 +115,11 @@ def main():
     if device.type == "cuda" and not torch.cuda.is_available():
         raise SystemExit("ERROR: --device cuda requested but no GPU found.")
     g = torch.Generator().manual_seed(args.seed)
+    # Fixed-seed validation generator: every val uses IDENTICAL corruption
+    # masks, so val-to-val deltas measure the model, not mask luck.
+    # (Unseeded masks made val swing ±0.4 nats between checks — larger
+    # than real gains — and best.pt selection was luck-based.)
+    val_g = torch.Generator().manual_seed(args.seed + 1_000_003)
 
     meta = json.load(open(os.path.join(args.data, "meta.json")))
     # Special-token ids come from the trained tokenizer (recorded in
@@ -149,9 +166,20 @@ def main():
         model = torch.compile(model)
     print(f"actual params: {model.count_parameters()/1e6:.2f}M")
 
-    opt = torch.optim.AdamW(model.parameters(), lr=args.lr,
-                            betas=(0.9, 0.95), weight_decay=args.weight_decay,
-                            fused=(device.type == "cuda"))
+    if args.optimizer == "adamw8bit":
+        try:
+            import bitsandbytes as bnb
+        except ImportError:
+            raise SystemExit(
+                "adamw8bit needs bitsandbytes: pip install bitsandbytes")
+        opt = bnb.optim.AdamW8bit(model.parameters(), lr=args.lr,
+                                  betas=(0.9, 0.95),
+                                  weight_decay=args.weight_decay)
+        print("optimizer: bitsandbytes AdamW8bit")
+    else:
+        opt = torch.optim.AdamW(model.parameters(), lr=args.lr,
+                                betas=(0.9, 0.95), weight_decay=args.weight_decay,
+                                fused=(device.type == "cuda"))
     if device.type == "cuda":
         amp_dtype = (torch.bfloat16 if torch.cuda.is_bf16_supported()
                      else torch.float16)
@@ -169,14 +197,18 @@ def main():
 
     # --- frozen run provenance (MLE workflow §3): one immutable record of
     # everything this run depends on, hashed and written before training ---
+    # (run_name/dataset_id used to be hardcoded to the 10M TinyStories run —
+    # every later run inherited wrong provenance until this was fixed.)
     rc = RunConfig(
-        run_name="xiiv-10m-tinystories",
-        dataset_snapshot_id=f"tinystories-v2-gpt4-{meta.get('train_blocks', 0)}b",
+        run_name=args.run_name or f"xiiv-{cfg.param_count_estimate()/1e6:.0f}m",
+        dataset_snapshot_id=args.dataset_id or
+        f"{os.path.basename(os.path.normpath(args.data))}-{meta.get('train_blocks', 0)}b",
         train_blocks=meta.get("train_blocks", 0),
         valid_blocks=meta.get("valid_blocks", 0),
         seq_len=args.seq_len, vocab_size=meta["vocab_size"],
         mask_id=meta["mask_id"], eos_id=meta["eos_id"],
-        batch_size=args.batch_size, total_steps=args.total_steps,
+        batch_size=args.batch_size, grad_accum=args.grad_accum,
+        optimizer=args.optimizer, total_steps=args.total_steps,
         lr=args.lr, lr_min=args.lr_min, warmup_steps=args.warmup_steps,
         weight_decay=args.weight_decay, grad_clip=args.grad_clip,
         bf16=args.bf16, seed=args.seed, threads=args.threads,
@@ -194,7 +226,12 @@ def main():
     if ckpts:
         ck = load_ckpt_trusted(os.path.join(args.ckpt_dir, ckpts[-1]))
         model.load_state_dict(ck["model"])
-        opt.load_state_dict(ck["opt"])
+        if "opt" in ck:
+            opt.load_state_dict(ck["opt"])
+        else:
+            # grown checkpoint (scripts/grow_checkpoint.py): optimizer
+            # restarts fresh; step/RNG state still continue the lineage
+            print("grown checkpoint: optimizer starts fresh")
         step, best_val = ck["step"], ck["best_val"]
         tokens_seen = ck.get("tokens_seen", 0)
         if "rng_state" in ck:                      # exact data-stream resume
@@ -232,28 +269,41 @@ def main():
         for pg in opt.param_groups:
             pg["lr"] = lr
 
-        batch = get_batch(train_mm, args.batch_size, args.seq_len, device, g)
         opt.zero_grad(set_to_none=True)
-        # guarantee-native: a fraction of batches is contract-conditioned.
-        # Contracts are synthesized from the CLEAN batch (pre-masking), so
-        # every clause is satisfiable by the target by construction.
-        contract_ids = None
-        conditioned = False
-        if tokenizer is not None and \
-                torch.rand((), generator=g).item() < args.contract_prob:
-            contracts = sample_contracts(
-                batch, tokenizer, meta["vocab_size"], cfg.mask_id,
-                cfg.eos_id, g,
-                adversarial_frac=args.contract_adversarial_frac)
-            contract_ids = encode_contract_batch(
-                contracts, tokenizer, args.contract_max_tokens, device)
-            conditioned = True
-        with amp:
-            loss, info = diffusion_loss(model, batch, cfg.mask_id,
-                                        cfg.t_min, cfg.t_max,
-                                        lock_prob=args.lock_prob,
-                                        contract_ids=contract_ids)
-        if not torch.isfinite(loss):
+        # gradient accumulation: grad_accum micro-batches make one
+        # optimizer step; effective batch = batch-size * grad_accum.
+        step_loss, step_mask, n_cond = 0.0, 0.0, 0
+        bad_micro = False
+        for _ in range(args.grad_accum):
+            batch = get_batch(train_mm, args.batch_size, args.seq_len,
+                              device, g)
+            # guarantee-native: a fraction of batches is
+            # contract-conditioned. Contracts are synthesized from the
+            # CLEAN batch (pre-masking), so every clause is satisfiable
+            # by the target by construction.
+            contract_ids = None
+            if tokenizer is not None and \
+                    torch.rand((), generator=g).item() < args.contract_prob:
+                contracts = sample_contracts(
+                    batch, tokenizer, meta["vocab_size"], cfg.mask_id,
+                    cfg.eos_id, g,
+                    adversarial_frac=args.contract_adversarial_frac)
+                contract_ids = encode_contract_batch(
+                    contracts, tokenizer, args.contract_max_tokens, device)
+                n_cond += 1
+            with amp:
+                loss, info = diffusion_loss(model, batch, cfg.mask_id,
+                                            cfg.t_min, cfg.t_max,
+                                            lock_prob=args.lock_prob,
+                                            contract_ids=contract_ids)
+            if not torch.isfinite(loss):
+                bad_micro = True
+                break
+            (loss / args.grad_accum).backward()
+            step_loss += loss.item() / args.grad_accum
+            step_mask += info["mask_ratio"] / args.grad_accum
+        conditioned = n_cond > 0
+        if bad_micro:
             nonfinite_streak += 1
             print(f"[step {step}] NON-FINITE LOSS (streak {nonfinite_streak})"
                   f" — restoring best.pt, halving LR", flush=True)
@@ -274,20 +324,20 @@ def main():
             print(f"halved LR (scale now {lr_scale})", flush=True)
             continue
         nonfinite_streak = 0
-        loss.backward()
         torch.nn.utils.clip_grad_norm_(model.parameters(), args.grad_clip)
         opt.step()
 
         step += 1
-        tokens_seen += args.batch_size * args.seq_len
+        eff_batch = args.batch_size * args.grad_accum
+        tokens_seen += eff_batch * args.seq_len
 
         if step % args.log_every == 0:
             dt = time.time() - t0
-            tps = args.log_every * args.batch_size * args.seq_len / dt
+            tps = args.log_every * eff_batch * args.seq_len / dt
             t0 = time.time()
-            rec = {"step": step, "loss": round(loss.item(), 4), "lr": lr,
+            rec = {"step": step, "loss": round(step_loss, 4), "lr": lr,
                    "tok_s": round(tps, 1),
-                   "mask_ratio": round(info["mask_ratio"], 3),
+                   "mask_ratio": round(step_mask, 3),
                    "tokens_seen_M": round(tokens_seen / 1e6, 2),
                    "contract": conditioned}
             vram_str = ""
@@ -297,7 +347,7 @@ def main():
                 vram_str = f" | vram {peak_vram_gb:.2f}GB"
             logf.write(json.dumps(rec) + "\n")
             logf.flush()
-            print(f"step {step:6d} | loss {loss.item():.4f} | "
+            print(f"step {step:6d} | loss {step_loss:.4f} | "
                   f"{tps:7.1f} tok/s | {tokens_seen/1e6:6.1f}M tok | "
                   f"lr {lr:.1e}{vram_str}", flush=True)
 
@@ -306,7 +356,8 @@ def main():
             vb = [get_batch(valid_mm, args.batch_size, args.seq_len,
                             device, g) for _ in range(args.val_batches)]
             val_nll = evaluate_nll_bound(model, vb, cfg.mask_id,
-                                         cfg.t_min, cfg.t_max, device)
+                                         cfg.t_min, cfg.t_max, device,
+                                         generator=val_g)
             model.train()
             improved = val_nll < best_val
             if improved:

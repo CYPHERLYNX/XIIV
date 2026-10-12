@@ -51,6 +51,8 @@ class RunConfig:
     tie_embeddings: bool = True
     # optimization
     batch_size: int = 48
+    grad_accum: int = 1                  # micro-batches per optimizer step
+    optimizer: str = "adamw"              # or "adamw8bit" (bitsandbytes)
     total_steps: int = 5000
     lr: float = 3e-4
     lr_min: float = 3e-5
@@ -94,6 +96,13 @@ class RunConfig:
 
     @classmethod
     def load(cls, path: str) -> "RunConfig":
+        import dataclasses
         d = json.load(open(path))
         d["betas"] = tuple(d["betas"])
+        known = {f.name for f in dataclasses.fields(cls)}
+        d = {k: v for k, v in d.items() if k in known}
+        # tolerate configs frozen before newer fields existed
+        for f in dataclasses.fields(cls):
+            if f.name not in d:
+                d[f.name] = f.default
         return cls(**d)

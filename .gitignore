@@ -48,3 +48,30 @@ weights_52m/xiiv-52m-fp16.safetensors
 .claude-flow/data/
 .claude-flow/logs/
 .claude-flow/sessions/
+
+# Additional training artifacts
+checkpoints_100m/
+checkpoints_100m_gn/
+checkpoints_1b_gn/
+checkpoints_500m_emb/
+checkpoints_500m_gn/
+checkpoints_books/
+checkpoints_locked/
+data_32k/
+data_all/
+data_books/
+data_fineweb/
+weights/
+weights_52m/
+*.bin
+*.pt
+*.safetensors
+
+# Logs and temp
+*.log
+logs/
+brag-output-*/
+transfer/
+demo/
+ruvector.db
+_repo-refresh-draft

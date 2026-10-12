@@ -88,11 +88,11 @@ See `MODEL_CARD_1B.md` for the full spec and `SCALING_PROTOCOL.md` for the rung-
 
 ## Guides
 
-- [Training runbook](HEAVY_TRAINING_RUNBOOK.md) — how to train on your GPU
-- [Scaling protocol](SCALING_PROTOCOL.md) — the rung-by-rung growth methodology
-- [Guarantee benchmarks](GUARANTEE_BENCHMARKS.md) — what we measure and why
-- [Self-improvement loop](SELF_IMPROVEMENT_LOOP.md) — the Forge: generate → execute → verify → correct
-- [Model card](MODEL_CARD_1B.md) — honest capabilities and limitations
+- [Training runbook](docs/HEAVY_TRAINING_RUNBOOK.md) — how to train on your GPU
+- [Scaling protocol](docs/SCALING_PROTOCOL.md) — the rung-by-rung growth methodology
+- [Guarantee benchmarks](docs/GUARANTEE_BENCHMARKS.md) — what we measure and why
+- [Self-improvement loop](docs/SELF_IMPROVEMENT_LOOP.md) — the Forge: generate → execute → verify → correct
+- [Model card](docs/MODEL_CARD_1B.md) — honest capabilities and limitations
 
 `llms.txt` in this repo carries the same reference for AI coding assistants.
 

@@ -1,0 +1,17 @@
+# XIIV GPU dependencies — for the RTX 4050 (6GB) training kit.
+# Same pins as requirements.txt, but the CUDA torch wheel instead of +cpu.
+#
+# Install with:
+#   python -m venv .venv-gpu
+#   .\.venv-gpu\Scripts\Activate.ps1
+#   pip install -r requirements-gpu.txt
+#
+# Or just run train_xiiv_gpu.ps1 — it does all of this for you.
+
+--extra-index-url https://download.pytorch.org/whl/cu128
+torch==2.14.1+cu128     # model, training, inference (CUDA 12.8 build)
+tokenizers==0.23.2      # BPE tokenizer training + inference
+numpy==2.5.3            # memmap data pipeline
+safetensors==0.8.0      # weight export / loading (no pickle)
+bitsandbytes>=0.45      # 8-bit AdamW (adamw8bit): ~4x smaller optimizer states,
+                        # required for 700M training on 6GB VRAM

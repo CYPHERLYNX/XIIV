@@ -106,7 +106,8 @@ def diffusion_loss(model, ids: torch.Tensor, mask_id: int,
     logits = model(noisy, **fwd_kwargs)
     n_masked = mask.sum()
     if n_masked == 0:
-        return logits.sum() * 0.0  # degenerate guard; keeps graph alive
+        # degenerate guard; keeps graph alive — always return (loss, info) tuple
+        return logits.sum() * 0.0, {"mask_ratio": 0.0, "n_masked": 0}
     loss = F.cross_entropy(logits[mask], targets[mask], reduction="mean")
     return loss, {"mask_ratio": mask.float().mean().item(),
                   "n_masked": int(n_masked)}

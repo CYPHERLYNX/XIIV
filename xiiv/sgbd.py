@@ -1,5 +1,5 @@
 """
-Cascade Block Distillation (CBD)
+Seed-Grown Block Distillation (CBD)
 =================================
 A novel method for training a 1B-parameter model on CPU-only hardware
 with <8GB RAM.
@@ -94,8 +94,8 @@ class BlockTrainer:
         self.optimizer.load_state_dict(ckpt['optimizer'])
 
 
-class CascadeDistiller:
-    """Orchestrates Cascade Block Distillation across all blocks."""
+class SeedGrownDistiller:
+    """Orchestrates Seed-Grown Block Distillation across all blocks."""
 
     def __init__(self, n_blocks, cache_dir, device='cpu'):
         self.n_blocks = n_blocks
@@ -137,7 +137,7 @@ class CascadeDistiller:
             # In practice, hook teacher_model.layers[t_start:t_end]
             pass  # Implementation depends on actual model structure
 
-        print(f"[CBD] Capturing teacher activations for {len(layer_groups)} groups...")
+        print(f"[SGBD] Capturing teacher activations for {len(layer_groups)} groups...")
         # ... actual capture loop ...
 
         for h in handles:
@@ -160,7 +160,7 @@ class CascadeDistiller:
         Phase 2: Train a single block independently.
         Only this block's params are in memory with gradients + optimizer.
         """
-        print(f"[CBD] Training block {block_idx}/{self.n_blocks} "
+        print(f"[SGBD] Training block {block_idx}/{self.n_blocks} "
               f"({sum(p.numel() for p in block_params)/1e6:.1f}M params)")
 
         trainer = BlockTrainer(block_fn, block_params, self.device)
@@ -185,14 +185,14 @@ class CascadeDistiller:
         """
         for cascade in range(n_cascades):
             self.cascade_iter = cascade
-            print(f"\n[CBD] === Cascade iteration {cascade+1}/{n_cascades} ===")
+            print(f"\n[SGBD] === Cascade iteration {cascade+1}/{n_cascades} ===")
 
             # Run composed student model to get updated activations
             # Use these as refined targets for next round
             # (In practice: forward pass through full student, capture
             #  inter-block activations, blend with teacher targets)
 
-            print(f"[CBD] Cascade {cascade+1} complete")
+            print(f"[SGBD] Cascade {cascade+1} complete")
 
 
 def estimate_memory(n_params, dtype_bytes=4):
@@ -214,7 +214,7 @@ def estimate_memory(n_params, dtype_bytes=4):
 if __name__ == '__main__':
     # Demonstrate memory feasibility
     print("=" * 60)
-    print("Cascade Block Distillation — Memory Feasibility")
+    print("Seed-Grown Block Distillation — Memory Feasibility")
     print("=" * 60)
 
     total_params = 916_000_000

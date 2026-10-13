@@ -1,5 +1,5 @@
 """
-Cascade Block Distillation — Proof of Concept
+Seed-Grown Block Distillation — Proof of Concept
 ==============================================
 Demonstrates the core mechanism on small models:
 1. Train a small "teacher" model
@@ -188,7 +188,7 @@ def cascade_block_distill(teacher, student, target_proj, n_blocks=4, steps_per_b
 
 if __name__ == '__main__':
     print("=" * 60)
-    print("Cascade Block Distillation — Proof of Concept")
+    print("Seed-Grown Block Distillation — Proof of Concept")
     print("=" * 60)
 
     teacher, target_proj = train_teacher()

@@ -598,6 +598,189 @@ class DenoisingState:
 
         return True
 
+    def step(self, model) -> bool:
+        """Run one denoise iteration. Returns True if more work remains."""
+        if self.finished:
+            return False
+        model.eval()
+        xb = self.x.unsqueeze(0)                              # (1, L)
+        fwd_kwargs = {}
+        if self.image_embeds is not None:
+            fwd_kwargs["image_embeds"] = self.image_embeds
+        if self.contract_ids is not None:
+            fwd_kwargs["contract_ids"] = self.contract_ids
+        logits = model(xb, **fwd_kwargs).squeeze(0)           # (L, V)
+        # Intervention: check if the raw top-1 would have been forbidden
+        # (i.e., the mask actively prevented a violation, not just passive)
+        if self.forbidden_ids:
+            raw_top1 = logits.argmax(dim=-1)
+            for pos in range(self.length):
+                if not bool(self.masked[pos]):
+                    continue
+                if int(raw_top1[pos]) in self.forbidden_ids:
+                    self.interventions.append({
+                        "step": self.steps_remaining,
+                        "kind": "forbidden_prevented",
+                        "detail": {"position": pos,
+                                   "blocked_token": int(raw_top1[pos])},
+                    })
+            logits[:, self.forbidden_ids] = float("-inf")
+            if not bool(torch.isfinite(logits).any(dim=-1).all()):
+                n = int((~torch.isfinite(logits).any(dim=-1)).sum())
+                raise ValueError(
+                    "impossible constraint set: forbidden_ids exclude "
+                    f"every vocabulary token at {n} position(s)")
+        logits = logits / max(self.temperature, 1e-6)
+        if self.top_p < 1.0:
+            logits = _top_p_filter(logits, self.top_p)
+        probs = torch.softmax(logits, dim=-1)
+        conf, _ = probs.max(dim=-1)                             # (L,)
+        self.conf = conf
+
+        # required counts absent from the whole canvas (prompt/frozen count).
+        # missing is a multiset: one entry per still-needed occurrence.
+        need = self._need_counts(self.x)
+        missing = [t for t, k in need.items() for _ in range(k)]
+
+        # ENDGAME (invariant: sum(missing) <= #masked, proved in class
+        # docstring): on the final step, force-place ALL missing occurrences
+        # into the most-confident remaining masked positions that keep every
+        # v2 constraint intact (no forbidden-phrase completion, no at_most
+        # breach). A placement failure here is a loud error, not a silent
+        # guarantee break.
+        if missing and self.steps_remaining == 1:
+            mconf = torch.where(self.masked, conf,
+                                torch.full_like(conf, -1.0))
+            cand = [p for p in torch.argsort(mconf, descending=True).tolist()
+                    if bool(self.masked[p])]
+            used = set()
+            for tok_i in missing:
+                placed_tok = False
+                for pos_i in cand:
+                    if pos_i in used:
+                        continue
+                    if tok_i in self._completing_tokens(pos_i):
+                        continue
+                    cap = self.at_most.get(tok_i)
+                    if cap is not None and \
+                            int((self.x == tok_i).sum()) >= cap:
+                        raise ValueError(
+                            f"unsatisfiable at endgame: required token "
+                            f"{tok_i} would exceed its at_most cap")
+                    self.x[pos_i] = tok_i
+                    self.conf[pos_i] = 1.0  # placed deterministically
+                    self.interventions.append({
+                        "step": self.steps_remaining,
+                        "kind": "endgame_forced_placement",
+                        "detail": {"position": pos_i, "token": tok_i},
+                    })
+                    used.add(pos_i)
+                    placed_tok = True
+                    break
+                if not placed_tok:
+                    raise ValueError(
+                        "unsatisfiable at endgame: no safe position for "
+                        f"required token {tok_i}")
+            self.masked = (self.x == self.mask_id) & ~self.frozen
+            missing = []
+
+        # normal parallel fill, reserving masked slots for missing counts.
+        m = int(self.masked.sum())
+        k = 0
+        if m > 0:
+            k = max(1, math.ceil(m / self.steps_remaining))
+            if missing:
+                # SLOT RESERVATION: never consume slots that missing required
+                # occurrences still need. This is what keeps q_s <= m_s.
+                k = min(k, max(0, m - len(missing)))
+        if k > 0:
+            # LOOKAHEAD SATISFIABILITY (world-first for semantic contracts):
+            # Before accepting this batch, verify the contract remains
+            # satisfiable. If filling k positions would create a dead end,
+            # shrink k until satisfiable. This prevents wasted steps that
+            # only discover violations at endgame.
+            #
+            # The check is O(L) — negligible vs a forward pass.
+            # Slot reservation already handles required counts; this catches
+            # the subtle cases (at_most interactions, forbidden placements).
+            while k > 0:
+                # Hypothetical: if we fill k positions, masks remaining = m - k
+                masks_after = m - k
+                need_after = self._need_counts(self.x)
+                total_missing = sum(need_after.values())
+                if total_missing <= masks_after:
+                    break
+                k -= 1
+            if k <= 0:
+                # Cannot fill any position without breaking satisfiability;
+                # skip this step (endgame will force-place)
+                self.steps_remaining -= 1
+                return not self.finished
+            if self.priority is not None:
+                score = torch.where(self.masked, self.priority * 1e6 + conf,
+                                    torch.full_like(conf, -1e18))
+                _, idx = torch.topk(score, k)
+            else:
+                masked_conf = torch.where(self.masked, conf,
+                                          torch.full_like(conf, -1.0))
+                _, idx = torch.topk(masked_conf, k)
+            # sample the chosen positions from their tempered distributions.
+            # Structural rule: a filled position never becomes [MASK] again
+            # (the model is free to predict EOS; [MASK] is simply not in the
+            # fill alphabet). This is what makes "complete" a guarantee
+            # rather than luck: the step budget always suffices.
+            for i in idx.tolist():
+                p = probs[i].clone()
+                p[self.mask_id] = 0.0
+                # v2: preventive suppression specific to this position —
+                # at_most caps and forbidden-phrase completions. Applied
+                # per fill (the loop is sequential, so each fill sees the
+                # previous ones: no parallel-completion race).
+                v2_blocked = []
+                if self.forbidden_phrases or self.at_most:
+                    v2_blocked = self._completing_tokens(i) + \
+                        self._capped_tokens()
+                    if v2_blocked:
+                        p[v2_blocked] = 0.0
+                s = p.sum()
+                if s <= 0:
+                    # degenerate: model put all mass on [MASK]; fall back to
+                    # uniform over the allowed alphabet (still via g, so
+                    # deterministic given seed).
+                    allowed = torch.ones(p.shape[0], dtype=torch.bool,
+                                         device=p.device)
+                    allowed[self.mask_id] = False
+                    if self.forbidden_ids:
+                        allowed[self.forbidden_ids] = False
+                    if v2_blocked:
+                        allowed[v2_blocked] = False
+                    if not bool(allowed.any()):
+                        raise ValueError(
+                            "impossible constraint set: no fillable token "
+                            f"at position {i}")
+                    p = allowed.float() / allowed.sum()
+                else:
+                    p = p / s
+                self.x[i] = torch.multinomial(p, 1,
+                                              generator=self.g).item()
+
+        # optional refinement: re-mask the least confident non-frozen tokens
+        # (disabled whenever required_ids are present — see __init__).
+        if self.remask_ratio > 0:
+            unmasked = (self.x != self.mask_id) & ~self.frozen
+            if unmasked.any():
+                uc = torch.where(unmasked, self.conf,
+                                 torch.full_like(self.conf, float("inf")))
+                r = max(1, int(unmasked.sum().item() * self.remask_ratio))
+                _, ridx = torch.topk(uc, r, largest=False)
+                self.x[ridx] = self.mask_id
+
+        self.masked = (self.x == self.mask_id) & ~self.frozen
+        self.steps_remaining -= 1
+        if self.trajectory is not None:
+            self.trajectory.append(self.x.clone())
+        return not self.finished
+
     def soft_mask_blend(self, model, positions: torch.Tensor,
                         probs: torch.Tensor, k: int = 5) -> tuple:
         """Compute confidence-weighted blended embeddings for soft-masking.

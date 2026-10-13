@@ -25,11 +25,21 @@ def generate_extreme_sudoku():
         [2,8,7,4,1,9,6,3,5],
         [3,4,5,2,8,6,1,7,9],
     ]
-    # Shuffle for variety
-    random.shuffle(base)
-    for row in base:
-        # Shuffle within band constraints (simplified)
-        pass
+    # Shuffle for variety: rows within bands, then bands themselves.
+    # (Shuffling all 9 rows arbitrarily would break 3x3 box constraints.)
+    bands = [base[0:3], base[3:6], base[6:9]]
+    random.shuffle(bands)
+    shuffled = []
+    for band in bands:
+        random.shuffle(band)
+        shuffled.extend(band)
+    base = shuffled
+    # Shuffle columns within each stack for more variety.
+    for stack_start in (0, 3, 6):
+        cols = list(range(stack_start, stack_start + 3))
+        random.shuffle(cols)
+        for r in range(9):
+            base[r][stack_start:stack_start + 3] = [base[r][c] for c in cols]
 
     # Remove cells to reach extreme difficulty (keep 20 givens)
     puzzle = [row[:] for row in base]

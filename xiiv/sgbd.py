@@ -1,5 +1,5 @@
 """
-Seed-Grown Block Distillation (CBD)
+Seed-Grown Block Distillation (SGBD)
 =================================
 A novel method for training a 1B-parameter model on CPU-only hardware
 with <8GB RAM.
@@ -60,26 +60,54 @@ from pathlib import Path
 class BlockTrainer:
     """Trains a single block independently with full gradients."""
 
-    def __init__(self, block_fn, block_params, device='cpu'):
+    def __init__(self, block_fn, block_params, device='cpu', lr=1e-4):
         """
         Args:
             block_fn: callable that runs the block forward pass
             block_params: list of parameters for this block only
             device: compute device
+            lr: AdamW learning rate (per-block tuning for SGBD Phase 2)
         """
         self.block_fn = block_fn
         self.params = list(block_params)
         self.device = device
-        self.optimizer = torch.optim.AdamW(self.params, lr=1e-4)
+        self.optimizer = torch.optim.AdamW(self.params, lr=lr)
 
     def train_step(self, x, target):
-        """Single training step on cached (input, target) pair."""
+        """Single training step on cached (input, target) pair.
+
+        Hidden-activation distillation (MSE) — used for non-output blocks.
+        For the output block (owns the LM head), prefer
+        ``train_step_tokens`` which adds on-policy self-correction.
+        """
         self.optimizer.zero_grad()
         out = self.block_fn(x)
         loss = F.mse_loss(out, target)
         loss.backward()
         self.optimizer.step()
         return loss.item()
+
+    def train_step_tokens(self, x0_ids, mask_id, lambda_self=1.0,
+                          generator=None):
+        """Token-level training step with on-policy self-correction.
+
+        Uses xiiv.onpolicy_distill.self_corrective_distill_loss (OSCD):
+        standard masked reconstruction PLUS a self-correction term on
+        inputs corrupted with the block's OWN predictions — closing the
+        train/inference mismatch inside SGBD Phase 2. Intended for the
+        output block (block_fn: token ids -> logits); earlier blocks use
+        train_step (MSE on cached teacher activations).
+
+        Returns (loss_value, info dict).
+        """
+        from xiiv.onpolicy_distill import self_corrective_distill_loss
+        self.optimizer.zero_grad()
+        loss, info = self_corrective_distill_loss(
+            self.block_fn, x0_ids, mask_id,
+            lambda_self=lambda_self, generator=generator)
+        loss.backward()
+        self.optimizer.step()
+        return loss.item(), info
 
     def save(self, path):
         torch.save({

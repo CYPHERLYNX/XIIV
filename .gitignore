@@ -17,6 +17,11 @@ checkpoints_ar/
 
 # Datasets (3.6 GB; rebuild with scripts/prepare_data.py — see DATASET_CARD.md)
 data/
+data_frontier/
+
+# SGBD / training-loop run state (reproducible; never ship)
+xiiv/training_loop/
+xiiv/hidden_eval/
 
 # Demo video build intermediates (see brag-output-*/share-copy.txt)
 /brag-output-*/

@@ -80,3 +80,8 @@ transfer/
 demo/
 ruvector.db
 _repo-refresh-draft
+
+# SGBD teacher activation cache (~17GB, regenerable, never commit)
+sgbd_cache/
+sgbd_blocks/
+sgbd_blocks_pilot/

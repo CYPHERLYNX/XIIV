@@ -15,18 +15,18 @@
 | heads (head_dim 64) | 16 | **20** |
 | ffn_dim | 2816 | **3584** |
 | vocab | 32768 | 32768 (unchanged) |
-| params (unique trainable) | 503.45M | **1019.23M** |
-| params (serialized, tied dup) | 537.01M | 1061.17M |
+| params (unique trainable) | 503.45M | **915.99M** |
+| params (serialized, tied dup) | 537.01M | 957.93M |
 
 Growth ratios: width 1.25×, depth 1.33×, FFN 1.27×. Head dim preserved at 64 (1280/20). FFN/d ratio preserved at ~2.8.
 
-Parameter count verified by instantiating `XIIVModel` with this exact config on a meta device and summing `model.parameters()` (deduplicates tied weights): **1,019,230,720** unique trainable parameters — a true 1B model. Serialized form is 1,061,173,760 elements (the tied 32768×1280 embedding matrix appears twice in `state_dict()`). The 1B estimate lands in the 0.9–1.1B target band on the unique-trainable definition.
+Parameter count verified 2026-10-13 by reading the grown artifact `checkpoints_1b_gn/ckpt_8218.safetensors` directly (safetensors header + tensor values): **915,988,480** unique trainable parameters (tied `embed.weight` ≡ `lm_head.weight`, value-identical, counted once), **957,931,520** serialized elements across 406 tensors, all weights finite. The tied 32768×1280 embedding matrix appears twice in the file. NOTE: an earlier meta-device instantiation of the config reported 1,019,230,720 unique / 1,061,173,760 serialized — that figure does NOT match the grown artifact on disk and is superseded by the file-verified numbers above. The config-vs-artifact gap (~103M) is an open question for the growth pipeline, not a counting artifact.
 
 ### Parameter counting convention
 
 XIIV publishes **unique trainable parameters** (tied weights counted once). This matches standard practice (e.g., GPT-2 124M, Llama counts). Rationale, verified 2026-10-11 on the 500M checkpoint:
 - `embed.weight` and `lm_head.weight` share the same storage (`data_ptr()` identical, values identical) — truly one parameter matrix used twice.
-- Naive `state_dict()` summation gives 537.01M (500M) / 1061.17M (1B) — inflated by exactly one embedding matrix (33.55M / 41.94M).
+- Naive `state_dict()` summation gives 537.01M (500M) / 957.93M (1B) — inflated by exactly one embedding matrix (33.55M / 41.94M).
 - Model cards report both numbers; the headline figure is always unique trainable.
 
 ## Growth procedure (frozen)

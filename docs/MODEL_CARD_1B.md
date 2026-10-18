@@ -4,7 +4,7 @@
 
 - **Name:** XIIV-1B
 - **Architecture:** Masked discrete diffusion (NOT autoregressive)
-- **Parameters:** 1,019,230,720 (1.02B)
+- **Parameters:** 915,988,480 unique trainable (957,931,520 serialized elements, 406 tensors) — 0.92B. Verified 2026-10-13 by reading `checkpoints_1b_gn/ckpt_8218.safetensors` header and tensor values (`embed.weight` ≡ `lm_head.weight`, value-identical; all weights finite).
 - **Lineage:** Grown from XIIV-500M (single lineage: 133M → 500M → 1B)
 - **Training status:** GROWN, NOT TRAINED — grown initialization only
 
@@ -65,7 +65,7 @@ This is the differentiator frontier labs haven't reached.
 ```
 XIIV-133M (133M, trained on stories, step 8218)
     → XIIV-500M (503M, grown, embeddings initialized)
-        → XIIV-1B (1.02B, grown, NOT trained)
+        → XIIV-1B (0.92B, grown, NOT trained)
 ```
 
 Single grown lineage. No random re-initialization. No cherry-picked checkpoints.

@@ -82,7 +82,8 @@ def diffusion_loss(model, ids: torch.Tensor, mask_id: int,
                    t_min: float = 0.15, t_max: float = 1.0, generator=None,
                    image_embeds: torch.Tensor | None = None,
                    lock_prob: float = 0.0,
-                   contract_ids: torch.Tensor | None = None):
+                   contract_ids: torch.Tensor | None = None,
+                   cnara_auto: bool = False):
     """Mean cross-entropy over masked positions only.
 
     image_embeds: optional (B, N, d) visual prefix for multimodal training
@@ -95,9 +96,20 @@ def diffusion_loss(model, ids: torch.Tensor, mask_id: int,
     contract_ids: optional (B, C) contract text token ids for
     guarantee-native pre-training (the contract describes the CLEAN target;
     the model learns P(target | noisy input, contract)).
+
+    cnara_auto: when True and the model carries a CNaRA controller
+    (see xiiv/lora.py), set the adapter condition from THIS batch before
+    the forward: lam = batch mask ratio, contract = contract_ids given.
+    The hypernetwork then learns in grad mode with the step. Default False:
+    existing callers are bit-unaffected.
     """
     noisy, targets, mask = mask_batch(ids, mask_id, t_min, t_max, generator,
                                       lock_prob=lock_prob)
+    if cnara_auto:
+        controller = getattr(model, "cnara_controller", None)
+        if controller is not None:
+            controller.set_condition(float(mask.float().mean().item()),
+                                     contract_present=contract_ids is not None)
     fwd_kwargs = {}
     if image_embeds is not None:
         fwd_kwargs["image_embeds"] = image_embeds
@@ -269,7 +281,14 @@ class DenoisingState:
                  return_trajectory: bool = False,
                  image_embeds: torch.Tensor | None = None,
                  contract_ids: torch.Tensor | None = None,
-                 allow_frozen_masks: bool = False):
+                 allow_frozen_masks: bool = False,
+                 adaptive_decode: bool = False,
+                 adapt_base_thr: float = 0.9,
+                 adapt_gain: float = 0.5,
+                 adapt_anchor: float = 0.5,
+                 adapt_thr_min: float = 0.5,
+                 adapt_thr_max: float = 0.99,
+                 guarantee=None):
         self.length = int(length)
         self.mask_id = int(mask_id)
         self.eos_id = int(eos_id)
@@ -281,6 +300,46 @@ class DenoisingState:
         self._soft_embeds = None  # (S, d) blended embeddings for soft positions
         self._soft_positions = None  # (S,) position indices
         self.allow_frozen_masks = bool(allow_frozen_masks)
+        # GACD (Guarantee-Aware Confidence Decoding): adaptive
+        # confidence-parallel unmasking. Inspired by fast-dLLM (Wu et al.,
+        # 2025) confidence-aware parallel decoding and CadLLM's adaptive
+        # thresholding — fused here with XIIV's contract-lookahead
+        # satisfiability, which still runs on the chosen batch (the
+        # combination is the XIIV invention). The threshold slides with
+        # canvas confidence: a confident canvas decodes many tokens in
+        # parallel (throughput), an uncertain one decodes cautiously
+        # (quality). All guarantee machinery (slot reservation, lookahead
+        # shrink, per-position v2 suppression, endgame force-place) is
+        # applied AFTER the adaptive batch is chosen, so guarantees are
+        # never weakened by speed. Off by default: opt-in via
+        # adaptive_decode=True.
+        self.adaptive_decode = bool(adaptive_decode)
+        self.adapt_base_thr = float(adapt_base_thr)
+        self.adapt_gain = float(adapt_gain)
+        self.adapt_anchor = float(adapt_anchor)
+        self.adapt_thr_min = float(adapt_thr_min)
+        self.adapt_thr_max = float(adapt_thr_max)
+        if self.adaptive_decode:
+            if not (0.0 < self.adapt_thr_min <= self.adapt_base_thr
+                    <= self.adapt_thr_max < 1.0):
+                raise ValueError(
+                    "require 0 < adapt_thr_min <= adapt_base_thr <= "
+                    f"adapt_thr_max < 1, got {self.adapt_thr_min}, "
+                    f"{self.adapt_base_thr}, {self.adapt_thr_max}")
+            if self.adapt_gain < 0:
+                raise ValueError("adapt_gain must be >= 0")
+        # GCDD (Guarantee-Constrained Diffusion Decoding): LAVE-style
+        # lookahead-then-verify fused with XIIV's semantic contracts
+        # (see xiiv/guarantee_decode.py). A GuaranteeLookahead, or None.
+        # When set, every token commit in step() is veto-checked: the
+        # commit is allowed only if the hypothetical canvas stays (a)
+        # contract-satisfiable (semantic) and (b) JSON-viable (syntactic,
+        # sound rejection). Vetoed commits are resampled (bounded
+        # attempts) and then deferred — never forced. Deferral preserves
+        # every structural invariant: speed can never weaken a guarantee.
+        # Runtime policy, not captured by to_snapshot/from_snapshot (same
+        # as the adaptive_decode tunables): re-attach after resuming.
+        self.guarantee = guarantee
         self.device = device
         self.vocab_size = vocab_size
         # Optional visual prefix (multimodal scaffold): (N, d) or (1, N, d),
@@ -656,7 +715,24 @@ class DenoisingState:
             used = set()
             for tok_i in missing:
                 placed_tok = False
-                for pos_i in cand:
+                placed_pos = None
+                order = cand
+                vc_set = None
+                if self.guarantee is not None:
+                    # GCDD endgame: prefer slots that keep the canvas
+                    # JSON-viable (LAVE-style lookahead). Required-token
+                    # guarantees always win: non-viable slots stay
+                    # eligible as fallback, and a forced non-viable
+                    # placement is logged as a guarantee conflict.
+                    vc = [p for p in cand
+                          if p not in used
+                          and self.guarantee.json_viable_placement(
+                              self, p, tok_i)]
+                    if vc:
+                        vc_set = set(vc)
+                        order = vc + [p for p in cand
+                                      if p not in vc_set]
+                for pos_i in order:
                     if pos_i in used:
                         continue
                     if tok_i in self._completing_tokens(pos_i):
@@ -676,23 +752,78 @@ class DenoisingState:
                     })
                     used.add(pos_i)
                     placed_tok = True
+                    placed_pos = pos_i
                     break
                 if not placed_tok:
                     raise ValueError(
                         "unsatisfiable at endgame: no safe position for "
                         f"required token {tok_i}")
+                if (vc_set is not None and placed_pos not in vc_set):
+                    # Required-token guarantee took precedence over JSON
+                    # viability: loud in the intervention trail, never
+                    # silent.
+                    self.interventions.append({
+                        "step": self.steps_remaining,
+                        "kind": "guarantee_conflict",
+                        "detail": {"position": placed_pos,
+                                   "token": tok_i,
+                                   "note": "required-token guarantee took "
+                                           "precedence over JSON "
+                                           "viability"},
+                    })
             self.masked = (self.x == self.mask_id) & ~self.frozen
             missing = []
 
         # normal parallel fill, reserving masked slots for missing counts.
         m = int(self.masked.sum())
         k = 0
+        k_sched = 0
         if m > 0:
-            k = max(1, math.ceil(m / self.steps_remaining))
+            k_sched = max(1, math.ceil(m / self.steps_remaining))
+            k = k_sched
             if missing:
                 # SLOT RESERVATION: never consume slots that missing required
                 # occurrences still need. This is what keeps q_s <= m_s.
                 k = min(k, max(0, m - len(missing)))
+        # GACD: adaptive confidence-parallel batch sizing. The fixed schedule
+        # k above unmasks at a constant rate regardless of how certain the
+        # model is; here the batch size comes from a confidence threshold
+        # that slides with the canvas's mean masked confidence:
+        #   thr = base + gain * (anchor - mean_masked_conf)
+        # confident canvas  -> thr drops -> many tokens in parallel (fast)
+        # uncertain canvas  -> thr rises -> only the sure few (careful),
+        #                      with a fast-dLLM-style fallback of >= 1 so
+        #                      every step makes progress.
+        # Everything below (slot reservation, lookahead shrink, per-position
+        # v2 suppression, endgame force-place) runs on the adaptive batch
+        # unchanged: speed can never weaken a guarantee.
+        adapt_info = None
+        if self.adaptive_decode and m > 0:
+            mconf = torch.where(self.masked, conf,
+                                torch.full_like(conf, float("nan")))
+            mean_mc = float(torch.nanmean(mconf))
+            thr = self.adapt_base_thr + self.adapt_gain * (
+                self.adapt_anchor - mean_mc)
+            thr = min(self.adapt_thr_max, max(self.adapt_thr_min, thr))
+            k_adapt = int(torch.sum(mconf > thr).item())
+            k_adapt = max(1, k_adapt)
+            # COMPLETION FLOOR: adaptive may unmask FASTER than the fixed
+            # schedule, never slower than what finishing within the step
+            # budget requires. Reserved slots are excluded — endgame
+            # force-places those. Without this floor, a cautious run could
+            # strand masks when steps run out (the fixed schedule provably
+            # cannot); with it, the "step budget always suffices" structural
+            # guarantee holds in adaptive mode too.
+            n_reserved = len(missing)
+            fill_needed = m - n_reserved
+            k_floor = (max(1, math.ceil(fill_needed / self.steps_remaining))
+                       if fill_needed > 0 else 0)
+            k = min(max(k_adapt, k_floor), m)
+            if missing:
+                k = min(k, max(0, m - n_reserved))
+            adapt_info = {"thr": thr, "mean_masked_conf": mean_mc,
+                          "k_adapt": k_adapt, "k_sched": k_sched,
+                          "k_floor": k_floor}
         if k > 0:
             # LOOKAHEAD SATISFIABILITY (world-first for semantic contracts):
             # Before accepting this batch, verify the contract remains
@@ -716,6 +847,15 @@ class DenoisingState:
                 # skip this step (endgame will force-place)
                 self.steps_remaining -= 1
                 return not self.finished
+            if adapt_info is not None:
+                # Audit trail: what the adaptive controller chose vs the
+                # fixed schedule, and what the lookahead shrink allowed.
+                adapt_info["k_final"] = k
+                self.interventions.append({
+                    "step": self.steps_remaining,
+                    "kind": "adaptive_decode",
+                    "detail": adapt_info,
+                })
             if self.priority is not None:
                 score = torch.where(self.masked, self.priority * 1e6 + conf,
                                     torch.full_like(conf, -1e18))
@@ -761,8 +901,26 @@ class DenoisingState:
                     p = allowed.float() / allowed.sum()
                 else:
                     p = p / s
-                self.x[i] = torch.multinomial(p, 1,
-                                              generator=self.g).item()
+                if self.guarantee is not None:
+                    # GCDD per-commit veto (LAVE-style lookahead-then-
+                    # verify): the commit lands only if the hypothetical
+                    # canvas stays contract-satisfiable AND JSON-viable.
+                    # Vetoed commits resample (bounded); persistent vetoes
+                    # defer the position — masks only ever shrink, so the
+                    # step budget still suffices and no guarantee is ever
+                    # weakened for speed.
+                    tok_id = self.guarantee.try_commit(self, i, p)
+                    if tok_id is None:
+                        self.interventions.append({
+                            "step": self.steps_remaining,
+                            "kind": "guarantee_defer",
+                            "detail": {"position": i},
+                        })
+                        continue
+                    self.x[i] = tok_id
+                else:
+                    self.x[i] = torch.multinomial(p, 1,
+                                                  generator=self.g).item()
 
         # optional refinement: re-mask the least confident non-frozen tokens
         # (disabled whenever required_ids are present — see __init__).
@@ -825,205 +983,6 @@ class DenoisingState:
         if not blended:
             return None, None
         return torch.stack(blended), torch.tensor(pos_list, device=device)
-        """Run one denoise iteration. Returns True if more work remains."""
-        if self.finished:
-            return False
-        model.eval()
-        xb = self.x.unsqueeze(0)                              # (1, L)
-        fwd_kwargs = {}
-        if self.image_embeds is not None:
-            fwd_kwargs["image_embeds"] = self.image_embeds
-        if self.contract_ids is not None:
-            fwd_kwargs["contract_ids"] = self.contract_ids
-        if self._soft_embeds is not None and self._soft_positions is not None:
-            fwd_kwargs["soft_embeds"] = self._soft_embeds.unsqueeze(0)
-            fwd_kwargs["soft_positions"] = self._soft_positions.unsqueeze(0)
-        logits = model(xb, **fwd_kwargs).squeeze(0)           # (L, V)
-        # Intervention: check if the raw top-1 would have been forbidden
-        # (i.e., the mask actively prevented a violation, not just passive)
-        if self.forbidden_ids:
-            raw_top1 = logits.argmax(dim=-1)
-            for pos in range(self.length):
-                if not bool(self.masked[pos]):
-                    continue
-                if int(raw_top1[pos]) in self.forbidden_ids:
-                    self.interventions.append({
-                        "step": self.steps_remaining,
-                        "kind": "forbidden_prevented",
-                        "detail": {"position": pos,
-                                   "blocked_token": int(raw_top1[pos])},
-                    })
-            logits[:, self.forbidden_ids] = float("-inf")
-            if not bool(torch.isfinite(logits).any(dim=-1).all()):
-                n = int((~torch.isfinite(logits).any(dim=-1)).sum())
-                raise ValueError(
-                    "impossible constraint set: forbidden_ids exclude "
-                    f"every vocabulary token at {n} position(s)")
-        logits = logits / max(self.temperature, 1e-6)
-        if self.top_p < 1.0:
-            logits = _top_p_filter(logits, self.top_p)
-        probs = torch.softmax(logits, dim=-1)
-        conf, _ = probs.max(dim=-1)                             # (L,)
-        self.conf = conf
-
-        # required counts absent from the whole canvas (prompt/frozen count).
-        # missing is a multiset: one entry per still-needed occurrence.
-        need = self._need_counts(self.x)
-        missing = [t for t, k in need.items() for _ in range(k)]
-
-        # ENDGAME (invariant: sum(missing) <= #masked, proved in class
-        # docstring): on the final step, force-place ALL missing occurrences
-        # into the most-confident remaining masked positions that keep every
-        # v2 constraint intact (no forbidden-phrase completion, no at_most
-        # breach). A placement failure here is a loud error, not a silent
-        # guarantee break.
-        if missing and self.steps_remaining == 1:
-            mconf = torch.where(self.masked, conf,
-                                torch.full_like(conf, -1.0))
-            cand = [p for p in torch.argsort(mconf, descending=True).tolist()
-                    if bool(self.masked[p])]
-            used = set()
-            for tok_i in missing:
-                placed_tok = False
-                for pos_i in cand:
-                    if pos_i in used:
-                        continue
-                    if tok_i in self._completing_tokens(pos_i):
-                        continue
-                    cap = self.at_most.get(tok_i)
-                    if cap is not None and \
-                            int((self.x == tok_i).sum()) >= cap:
-                        raise ValueError(
-                            f"unsatisfiable at endgame: required token "
-                            f"{tok_i} would exceed its at_most cap")
-                    self.x[pos_i] = tok_i
-                    self.conf[pos_i] = 1.0  # placed deterministically
-                    self.interventions.append({
-                        "step": self.steps_remaining,
-                        "kind": "endgame_forced_placement",
-                        "detail": {"position": pos_i, "token": tok_i},
-                    })
-                    used.add(pos_i)
-                    placed_tok = True
-                    break
-                if not placed_tok:
-                    raise ValueError(
-                        "unsatisfiable at endgame: no safe position for "
-                        f"required token {tok_i}")
-            self.masked = (self.x == self.mask_id) & ~self.frozen
-            missing = []
-
-        # normal parallel fill, reserving masked slots for missing counts.
-        m = int(self.masked.sum())
-        k = 0
-        if m > 0:
-            k = max(1, math.ceil(m / self.steps_remaining))
-            if missing:
-                # SLOT RESERVATION: never consume slots that missing required
-                # occurrences still need. This is what keeps q_s <= m_s.
-                k = min(k, max(0, m - len(missing)))
-        if k > 0:
-            # LOOKAHEAD SATISFIABILITY (world-first for semantic contracts):
-            # Before accepting this batch, verify the contract remains
-            # satisfiable. If filling k positions would create a dead end,
-            # shrink k until satisfiable. This prevents wasted steps that
-            # only discover violations at endgame.
-            #
-            # The check is O(L) — negligible vs a forward pass.
-            # Slot reservation already handles required counts; this catches
-            # the subtle cases (at_most interactions, forbidden placements).
-            while k > 0:
-                # Hypothetical: if we fill k positions, masks remaining = m - k
-                masks_after = m - k
-                need_after = self._need_counts(self.x)
-                total_missing = sum(need_after.values())
-                if total_missing <= masks_after:
-                    break
-                k -= 1
-            if k <= 0:
-                # Cannot fill any position without breaking satisfiability;
-                # skip this step (endgame will force-place)
-                self.steps_remaining -= 1
-                return not self.finished
-            if self.priority is not None:
-                score = torch.where(self.masked, self.priority * 1e6 + conf,
-                                    torch.full_like(conf, -1e18))
-                _, idx = torch.topk(score, k)
-            else:
-                masked_conf = torch.where(self.masked, conf,
-                                          torch.full_like(conf, -1.0))
-                _, idx = torch.topk(masked_conf, k)
-            # sample the chosen positions from their tempered distributions.
-            # Structural rule: a filled position never becomes [MASK] again
-            # (the model is free to predict EOS; [MASK] is simply not in the
-            # fill alphabet). This is what makes "complete" a guarantee
-            # rather than luck: the step budget always suffices.
-            for i in idx.tolist():
-                p = probs[i].clone()
-                p[self.mask_id] = 0.0
-                # v2: preventive suppression specific to this position —
-                # at_most caps and forbidden-phrase completions. Applied
-                # per fill (the loop is sequential, so each fill sees the
-                # previous ones: no parallel-completion race).
-                v2_blocked = []
-                if self.forbidden_phrases or self.at_most:
-                    v2_blocked = self._completing_tokens(i) + \
-                        self._capped_tokens()
-                    if v2_blocked:
-                        p[v2_blocked] = 0.0
-                s = p.sum()
-                if s <= 0:
-                    # degenerate: model put all mass on [MASK]; fall back to
-                    # uniform over the allowed alphabet (still via g, so
-                    # deterministic given seed).
-                    allowed = torch.ones(p.shape[0], dtype=torch.bool,
-                                         device=p.device)
-                    allowed[self.mask_id] = False
-                    if self.forbidden_ids:
-                        allowed[self.forbidden_ids] = False
-                    if v2_blocked:
-                        allowed[v2_blocked] = False
-                    if not bool(allowed.any()):
-                        raise ValueError(
-                            "impossible constraint set: no fillable token "
-                            f"at position {i}")
-                    p = allowed.float() / allowed.sum()
-                else:
-                    p = p / s
-                self.x[i] = torch.multinomial(p, 1,
-                                              generator=self.g).item()
-
-        # optional refinement: re-mask the least confident non-frozen tokens
-        # (disabled whenever required_ids are present — see __init__).
-        if self.remask_ratio > 0:
-            unmasked = (self.x != self.mask_id) & ~self.frozen
-            if unmasked.any():
-                uc = torch.where(unmasked, self.conf,
-                                 torch.full_like(self.conf, float("inf")))
-                r = max(1, int(unmasked.sum().item() * self.remask_ratio))
-                _, ridx = torch.topk(uc, r, largest=False)
-                self.x[ridx] = self.mask_id
-
-        self.masked = (self.x == self.mask_id) & ~self.frozen
-        self.steps_remaining -= 1
-
-        # Soft-masking: compute blended embeddings for remaining masked
-        # positions. Next forward pass will see uncertainty-weighted blends
-        # instead of pure [MASK] embeddings. This gives richer signal.
-        if self.softmask_k > 0 and bool(self.masked.any()):
-            masked_pos = torch.where(self.masked)[0]
-            # Recompute probs for blending (we have them from this step)
-            blend_embeds, blend_pos = self.soft_mask_blend(
-                model, masked_pos, probs, k=self.softmask_k)
-            self._soft_embeds = blend_embeds
-            self._soft_positions = blend_pos
-        else:
-            self._soft_embeds = None
-            self._soft_positions = None
-
-        if self.trajectory is not None:
-            self.trajectory.append(self.x.clone())
-        return not self.finished
 
     # -- mid-process intervention ----------------------------------------
     def _check_slot_invariant(self, x, masked, context: str):
@@ -1187,6 +1146,20 @@ class DenoisingState:
         g = torch.Generator(device=snap["device"])
         g.set_state(snap["generator_state"].clone())
         st.g = g
+        # Runtime policy attributes are NOT snapshotted (see __init__
+        # docstring: re-attach after resuming). They must still EXIST or
+        # step() crashes with AttributeError — initialize to safe defaults.
+        st.softmask_k = 0
+        st._soft_embeds = None
+        st._soft_positions = None
+        st.adaptive_decode = False
+        st.adapt_base_thr = 0.9
+        st.adapt_gain = 0.5
+        st.adapt_anchor = 0.5
+        st.adapt_thr_min = 0.5
+        st.adapt_thr_max = 0.99
+        st.guarantee = None
+        st.interventions = []
         return st
 
 
@@ -1208,7 +1181,10 @@ def sample_trajectory(model, length: int, mask_id: int, eos_id: int,
                       constraints: dict | None = None,
                       image_embeds: torch.Tensor | None = None,
                       allow_frozen_masks: bool = False,
-                      device="cpu"):
+                      adaptive_decode: bool = False,
+                      adapt_kwargs: dict | None = None,
+                      device="cpu",
+                      guarantee=None):
     """Parallel de-masking generation.
 
     The output is ALWAYS exactly ``length`` TOKENS — "exact length" is a
@@ -1225,6 +1201,14 @@ def sample_trajectory(model, length: int, mask_id: int, eos_id: int,
             tokens to re-mask each step for iterative refinement (0 = off).
         return_trajectory: if True, also return the per-step token-id matrix
             for visualization.
+        adaptive_decode: if True, enable GACD (Guarantee-Aware Confidence
+            Decoding): the per-step unmask batch is chosen by a confidence
+            threshold that slides with canvas confidence (fast on confident
+            canvases, careful on uncertain ones) instead of the fixed
+            ceil(masks/steps) schedule. All contract guarantees still
+            apply. adapt_kwargs: optional dict overriding the
+            adapt_base_thr/adapt_gain/adapt_anchor/adapt_thr_min/
+            adapt_thr_max tunables (see DenoisingState).
         order: unmasking order preset — "confidence" (default),
             "left-to-right", "right-to-left", "ends-first", "middle-last",
             "random". Implemented as priority-weighted top-k selection:
@@ -1251,6 +1235,12 @@ def sample_trajectory(model, length: int, mask_id: int, eos_id: int,
               anchors: dict[pos, id] — pre-placed and locked, e.g. required
                   words at exact positions ("structure priors"). The model
                   writes around them.
+        guarantee: optional xiiv.guarantee_decode.GuaranteeLookahead —
+            GCDD (Guarantee-Constrained Diffusion Decoding): LAVE-style
+            lookahead-then-verify fused with the semantic contract
+            system. Every token commit is veto-checked against BOTH
+            contract satisfiability and JSON viability (sound rejection);
+            vetoed commits resample then defer. Opt-in, CPU-only.
 
     Returns (ids, confidences) or (ids, confidences, trajectory).
     Deterministic given `seed`. If nothing is masked (e.g. a fully frozen
@@ -1264,7 +1254,8 @@ def sample_trajectory(model, length: int, mask_id: int, eos_id: int,
         order=order, constraints=constraints, device=device,
         vocab_size=vocab_size, return_trajectory=return_trajectory,
         image_embeds=image_embeds, allow_frozen_masks=allow_frozen_masks,
-        softmask_k=softmask_k)
+        softmask_k=softmask_k, adaptive_decode=adaptive_decode,
+        guarantee=guarantee, **(adapt_kwargs or {}))
     while st.step(model):
         pass
     out = (st.x.cpu(), st.conf.cpu())
@@ -1286,7 +1277,10 @@ def sample_trajectory_stateful(model, length: int, mask_id: int, eos_id: int,
                                image_embeds: torch.Tensor | None = None,
                                allow_frozen_masks: bool = False,
                                softmask_k: int = 0,
-                               device="cpu"):
+                               adaptive_decode: bool = False,
+                               adapt_kwargs: dict | None = None,
+                               device="cpu",
+                               guarantee=None):
     """Same algorithm as sample_trajectory, but also exposes the
     DenoisingState so callers can pause, snapshot, pin, or otherwise
     intervene mid-process.
@@ -1303,7 +1297,8 @@ def sample_trajectory_stateful(model, length: int, mask_id: int, eos_id: int,
         order=order, constraints=constraints, device=device,
         vocab_size=vocab_size, return_trajectory=return_trajectory,
         image_embeds=image_embeds, allow_frozen_masks=allow_frozen_masks,
-        softmask_k=softmask_k)
+        softmask_k=softmask_k, adaptive_decode=adaptive_decode,
+        guarantee=guarantee, **(adapt_kwargs or {}))
     while st.step(model):
         pass
     out = (st.x.cpu(), st.conf.cpu())

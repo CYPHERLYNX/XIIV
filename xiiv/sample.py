@@ -21,6 +21,17 @@ from .tokenizer import XIIVTokenizer
 from .diffusion import sample_trajectory
 
 
+def _build_guarantee(args, tok):
+    """Build the GCDD lookahead for --guarantee-json, else None."""
+    if not args.guarantee_json:
+        return None
+    from .guarantee_decode import GuaranteeLookahead, JsonViabilityChecker
+    return GuaranteeLookahead(
+        json_checker=JsonViabilityChecker(),
+        token_text=lambda tid: tok.decode([int(tid)]),
+        mask_id=tok.mask_id)
+
+
 def load_model(weights_path: str, device="cpu"):
     """Load weights + config. Zero network calls.
 
@@ -96,7 +107,9 @@ def cmd_generate(args, model, cfg, tok):
             model, args.length, tok.mask_id, tok.eos_id, steps=args.steps,
             temperature=args.temperature, top_p=args.top_p, seed=args.seed,
             prompt_ids=prompt_ids, remask_ratio=args.remask,
-            return_trajectory=args.trajectory, device="cpu")
+            return_trajectory=args.trajectory, device="cpu",
+            adaptive_decode=args.adaptive_decode,
+            guarantee=_build_guarantee(args, tok))
         if args.trajectory:
             ids, conf, traj = out
         else:
@@ -133,7 +146,8 @@ def cmd_infill(args, model, cfg, tok):
         model, length, tok.mask_id, tok.eos_id, steps=args.steps,
         temperature=args.temperature, top_p=args.top_p, seed=args.seed,
         prompt_ids=ids, frozen=frozen, remask_ratio=args.remask,
-        device="cpu")
+        device="cpu", adaptive_decode=args.adaptive_decode,
+        guarantee=_build_guarantee(args, tok))
     # re-apply frozen context exactly (safety: sampler never touches it,
     # but belt-and-braces for the demo)
     out_ids[frozen] = ids[frozen]
@@ -171,6 +185,15 @@ def main():
                         "spans and re-denoise in place (0 = off)")
     g.add_argument("--refine-frac", type=float, default=0.15,
                    help="fraction of open positions remasked per refine round")
+    g.add_argument("--adaptive-decode", action="store_true",
+                   help="GACD: adaptive confidence-parallel unmasking — "
+                        "batch size follows a confidence threshold that "
+                        "slides with canvas confidence (fast when confident, "
+                        "careful when uncertain); contract guarantees unchanged")
+    g.add_argument("--guarantee-json", action="store_true",
+                   help="GCDD: LAVE-style lookahead-then-verify — veto any "
+                        "token commit that provably destroys JSON validity "
+                        "or contract satisfiability (CPU-only, opt-in)")
 
     f = sub.add_parser("infill",
                        help="fill <mask> / <mask:N> spans, e.g. --text 'a <mask:5> sat'")
@@ -182,8 +205,21 @@ def main():
     f.add_argument("--top-p", type=float, default=0.9)
     f.add_argument("--remask", type=float, default=0.0)
     f.add_argument("--seed", type=int, default=7)
+    f.add_argument("--adaptive-decode", action="store_true",
+                   help="GACD: adaptive confidence-parallel unmasking "
+                        "(see generate --help)")
+    f.add_argument("--guarantee-json", action="store_true",
+                   help="GCDD: LAVE-style lookahead-then-verify — veto any "
+                        "token commit that provably destroys JSON validity "
+                        "or contract satisfiability (CPU-only, opt-in)")
 
     args = ap.parse_args()
+    # GCDD is wired into the plain generate / infill paths only.
+    if (args.guarantee_json and args.cmd == "generate"
+            and (args.scratchpad > 0 or args.refine_rounds > 0)):
+        ap.error("--guarantee-json is not wired into the --scratchpad / "
+                 "--refine-rounds paths yet; use it with plain generate "
+                 "or infill")
     # generate needs a positive canvas; infill allows --length 0 (= exact,
     # no padding — the canvas comes from the masked text itself).
     if args.cmd == "generate" and args.length < 1:

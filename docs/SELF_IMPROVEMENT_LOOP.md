@@ -2,7 +2,7 @@
 
 **Directive from Fahad (2026-10-11):** Add a self-learning approach alongside the guarantee-native work: the model generates (e.g., code), runs it, checks the result against expectations, and if it doesn't get 100% of what it expects, rewrites until it does. This pushes XIIV toward true ASI capability.
 
-**Status:** Design frozen 2026-10-11. Not yet implemented.
+**Status:** Implemented in code — `xiiv/forge.py` + `xiiv/forge_agent.py` (ForgeTask, ForgeResult, SkillLibrary, ForgeAgent, ThinkTrace; imports verified clean 2026-10-13). End-to-end execution against the independent verifier pending.
 
 ---
 

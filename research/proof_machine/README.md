@@ -143,6 +143,37 @@ a learned composition policy (supervised/RL on certificate-validity reward, or
 PRoSFI-style process rewards — see `research/daily_2026-10-18.md`) succeeds VRC's
 constructive planner when the primitive library grows beyond the 8-op closure.
 
+- **2026-10-19 — §5.6 task 2 DONE: proof-carrying conditionals (IFZERO).**
+  `conditionals.py` (new): `IFZ(cond, then, else)` programs; guard decided on
+  the NEURAL value, taken branch runs on the pre-guard value; preconditions
+  non-vacuous for the first time (`P_then(c):=(c==0)`, `P_else(c):=(c!=0)`),
+  so the `∀y.(Q_f → P_g)` interface check does real routing work; neural
+  divergence at a guard halts LOUD (VRC doctrine at branch points).
+  `certificates.py`: generalized `verify_trace` + branch-node checks B1–B4
+  (guard re-derivation, neural/symbolic guard agreement, taken-consistency,
+  branch sub-trace validity). `compose.py`: `run_program` (recursive),
+  `symbolic_result_program`. `taskgen_conditional.py`: programs with
+  taken-path cost == L exactly, all intermediates (incl. untaken branches)
+  bound-checked in [-1e6, 1e6]. `test_conditional.py`: 33/33 green (branch
+  execution, nesting, 5 forgery rejections, adversarial interface checks,
+  fault-injected divergence halt). `vrc_harness.py`: `synthesize_conditional`
+  plans cond/then/else specs via GENSEQ and verifies IFZ programs on probes.
+- **2026-10-19 — conditional kill gate, PM-only** (`results/killgate_cond_20261019_025556.json`):
+  depths {1,2,4,8,16,32,64,100} × 1000 fresh programs.
+  A_CIF = **100.00%** at every depth; V_CIF = **100.00%** at every depth
+  (all branch certificates verify); OLS slope b = 0.000000 (t = 0.00), flat;
+  0 loud halts across 8000 instances (~44k branch decisions; frac_then
+  ≈ 0.11–0.13, both outcomes well covered). PM-only kill triggers: **none** →
+  **PASS (PM-only)**. Caveats: PM-only — the transformer-separation leg is
+  queued (baseline needs retraining on the conditional program encoding);
+  generator uses equal branch lengths (documented); guards are MOD_m
+  (narrow but real conditionals). Per-step primitive exactness was already
+  100% in Phase-1, so this sweep isolates the claim that *branching does not
+  break compositional scaling*.
+- **Next:** §5.6 task 3 (noisy inputs → interval abstractions; makes the
+  tightness loss a real signal), §5.6 task 1 (logic chains), conditional
+  transformer baseline (separation leg).
+
 ## Relation to the main research line
 
 The 2026-10-16 11pm verdict named **Proof-Carrying Optimal Reduction**

@@ -77,6 +77,7 @@ import re
 
 from certificates import RULES, canon, var, const, add, mul, neg, mod, verify_certificate
 from compose import ProofMachine, interface_check  # noqa: F401  (monkeypatch point for tests)
+from conditionals import ifz, prog_to_str
 
 
 # ---------------------------------------------------------------------------
@@ -544,6 +545,79 @@ class VRC:
                     "best_prefix_len": best_prefix_len,
                     "repairs": sum(1 for h in history
                                    if h["category"] == "interface-fail")}
+
+    # -- conditional synthesis (spec 5.6 task 2) ----------------------------
+
+    def synthesize_conditional(self, cond_spec, then_spec, else_spec,
+                               probes=None):
+        """Synthesize a verified IFZ program from three arithmetic specs.
+
+        Each spec is planned independently with the existing SPECSPLIT/GENSEQ
+        skills (same closure rules, same loud spec-reject). The assembled
+        program is [IFZ(cond_ops, then_ops, else_ops)]: at runtime the guard
+        program's NEURAL value decides the branch (0 -> then), and the
+        P_then/P_else interface check routes on it. Every probe is executed
+        AND independently verified (concrete == symbolic, certificate
+        accepted by the verifier incl. B1-B4); any failure halts loud with
+        its category -- nothing unverified is returned.
+
+        Scope note: no repair loop for the three sub-plans in this iteration
+        (each sub-plan is constructive and deterministic); a SpecRejected
+        sub-plan halts loud as spec-rejected, naming the offending spec.
+        """
+        probes = list(probes) if probes else list(self.PROBES)
+        plans = {}
+        for name, spec in (("cond", cond_spec), ("then", then_spec),
+                           ("else", else_spec)):
+            try:
+                raw, target = self.skill_specsplit(spec)
+                ops = self.skill_genseq(target)
+            except SpecRejected as r:
+                raise VRCHalted(
+                    "spec-rejected",
+                    f"{name} spec rejected: {r.reason} "
+                    f"[subexpr: {r.subexpr}]") from r
+            # target-equality oracle on the sub-plan (same as synthesize)
+            e = var()
+            for op in ops:
+                e = RULES[op](e)
+            if e != target:
+                raise VRCHalted(
+                    "target-mismatch",
+                    f"{name} planner emitted {canon(e)} but target is "
+                    f"{canon(target)} -- internal inconsistency")
+            plans[name] = ops
+        prog = [ifz(plans["cond"], plans["then"], plans["else"])]
+        probe_results = []
+        for x0 in probes:
+            try:
+                result, cert = self.pm.run_program(x0, prog)
+            except RuntimeError as ex:
+                raise VRCHalted("neural-divergence",
+                                f"probe x0={x0}: {ex}") from ex
+            sym = self.pm.symbolic_result_program(x0, prog)
+            if result != sym:
+                raise VRCHalted(
+                    "neural-divergence",
+                    f"concrete ({result}) != symbolic ({sym}) at x0={x0}; "
+                    f"no certificate shipped")
+            vok, vinfo = verify_certificate(cert)
+            if not vok:
+                raise VRCHalted(
+                    "cert-invalid",
+                    f"independent verifier rejected the branch certificate "
+                    f"at x0={x0}: {vinfo}")
+            node = cert["steps"][0]
+            probe_results.append({"x0": x0, "result": result,
+                                  "taken": node["taken"],
+                                  "guard_value": node["cond_value"]})
+        return {"status": "ok",
+                "prog": prog_to_str(prog),
+                "cond_ops": plans["cond"],
+                "then_ops": plans["then"],
+                "else_ops": plans["else"],
+                "probes": probe_results,
+                "verified": True}
 
 
 # ---------------------------------------------------------------------------

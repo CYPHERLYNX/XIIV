@@ -192,11 +192,144 @@ def expr_from_json(j):
 # Independent verifier
 # ---------------------------------------------------------------------------
 
+def _verify_flat_step(s, i, prev_out, x0):
+    """Verify one primitive step. Returns (ok, info, out_e) or (False, info, None)."""
+    op = s["op"]
+    if op not in RULES:
+        return False, {"error": f"unknown op {op} at step {i}"}, None
+    in_e = expr_from_json(s["in"])
+    out_e = expr_from_json(s["out"])
+    # re-derive: the verifier applies its OWN rule table
+    derived = RULES[op](in_e)
+    if derived != out_e:
+        return False, {"error": f"step {i} ({op}): re-derivation mismatch",
+                       "derived": canon(derived), "claimed": canon(out_e)}, None
+    # chaining
+    if prev_out is not None and in_e != prev_out:
+        return False, {"error": f"step {i}: input != previous output"}, None
+    return True, {}, out_e
+
+
+def _verify_branch_node(s, i, prev_out, x0):
+    """
+    Verify one IFZ branch node. The node claims:
+      in          abstraction at branch entry (== prev_out by chaining)
+      cond_expr   guard expression over x0
+      cond_value  the NEURAL guard value the prover decided on
+      taken       "then" | "else"
+      cond_steps  guard sub-trace (in -> cond output)
+      steps       taken-branch sub-trace (in -> out), on the PRE-guard value
+      out         claimed branch output abstraction
+    Checks (all re-derived, nothing trusted):
+      B1. chaining: in == prev_out
+      B2. guard sub-trace valid AND evaluates to cond_value
+          (neural guard value must equal the symbolic re-derivation --
+           a divergence here fails LOUD instead of shipping)
+      B3. taken consistent with cond_value (then iff 0) -- the P_then/P_else
+          interface condition, checked by the INDEPENDENT verifier
+      B4. branch sub-trace valid from the pre-guard input, ending at out
+    Returns (ok, info, out_e).
+    """
+    try:
+        in_e = expr_from_json(s["in"])
+        out_e = expr_from_json(s["out"])
+        cond_value = int(s["cond_value"])
+        taken = s["taken"]
+        cond_e = expr_from_json(s["cond_expr"])
+    except Exception as ex:
+        return False, {"error": f"branch {i}: malformed node: {ex}"}, None
+    # B1. chaining
+    if prev_out is not None and in_e != prev_out:
+        return False, {"error": f"branch {i}: input != previous output"}, None
+    # B2. guard sub-trace: must be valid and evaluate to the claimed cond_value
+    ok, info = verify_trace(s["cond_steps"], x0, in_e, cond_value)
+    if not ok:
+        return False, {"error": f"branch {i}: guard sub-trace invalid",
+                       "detail": info}, None
+    guard_out = info["final_expr_tuple"]
+    if guard_out != cond_e:
+        return False, {"error": f"branch {i}: guard expr != re-derived guard output",
+                       "claimed": canon(cond_e), "derived": canon(guard_out)}, None
+    if eval_expr(cond_e, x0) != cond_value:
+        # Independent re-derivation disagrees with the neural guard value:
+        # neural divergence at the branch condition -- fail closed.
+        return False, {"error": f"branch {i}: neural-divergence at guard: "
+                                f"symbolic={eval_expr(cond_e, x0)} != "
+                                f"neural={cond_value}"}, None
+    # B3. the interface condition, checked independently: then iff guard == 0
+    want = "then" if cond_value == 0 else "else"
+    if taken != want:
+        return False, {"error": f"branch {i}: taken={taken!r} inconsistent with "
+                                f"guard value {cond_value} (want {want!r}); "
+                                f"P_then/P_else interface violated"}, None
+    # B4. taken-branch sub-trace from the PRE-guard input, ending at out
+    ok, info = verify_trace(s["steps"], x0, in_e, None)
+    if not ok:
+        return False, {"error": f"branch {i}: taken-branch sub-trace invalid",
+                       "detail": info}, None
+    if info["final_expr_tuple"] != out_e:
+        return False, {"error": f"branch {i}: branch output != claimed out",
+                       "derived": canon(info["final_expr_tuple"]),
+                       "claimed": canon(out_e)}, None
+    return True, {"branch": i, "taken": taken, "cond_value": cond_value}, out_e
+
+
+def verify_trace(steps, x0, start_expr, expected_result):
+    """
+    Generalized mechanical check of a trace (flat op steps and/or IFZ branch
+    nodes). Returns (ok: bool, info: dict).
+
+    Checks (each linear in |trace|):
+      1. steps[0].in == start_expr   (initial abstraction as claimed)
+      2. RULES[op](in) == out        (each abstract transformer application
+                                      re-derived, not trusted)
+      3. out_k == in_{k+1}           (trace chaining, incl. branch nodes)
+      4. eval(out_last, x0) == expected_result   (skipped when None)
+    info carries final_expr (canonical string), final_expr_tuple, step count
+    and max expression size.
+    """
+    try:
+        x0 = int(x0)
+        if not steps:
+            return False, {"error": "empty trace"}
+        first = steps[0]
+        first_in = expr_from_json(first["in"])
+        if first_in != start_expr:
+            return False, {"error": f"trace does not start at claimed input: "
+                                    f"{canon(first_in)} != {canon(start_expr)}"}
+        prev_out = None
+        max_nodes = 0
+        n_flat = 0
+        n_branch = 0
+        for i, s in enumerate(steps):
+            if s.get("branch"):
+                ok, info, out_e = _verify_branch_node(s, i, prev_out, x0)
+                n_branch += 1
+            else:
+                ok, info, out_e = _verify_flat_step(s, i, prev_out, x0)
+                n_flat += 1
+            if not ok:
+                info["step_index"] = i
+                return False, info
+            prev_out = out_e
+            max_nodes = max(max_nodes, expr_size(out_e))
+        if expected_result is not None and eval_expr(prev_out, x0) != int(expected_result):
+            return False, {"error": "final expression does not evaluate to claimed result",
+                           "eval": eval_expr(prev_out, x0),
+                           "claimed": int(expected_result)}
+        return True, {"steps": len(steps), "flat_steps": n_flat,
+                      "branch_nodes": n_branch, "max_expr_nodes": max_nodes,
+                      "final_expr": canon(prev_out), "final_expr_tuple": prev_out}
+    except Exception as ex:  # a malformed certificate fails closed
+        return False, {"error": f"verifier exception: {type(ex).__name__}: {ex}"}
+
+
 def verify_certificate(cert):
     """
     Mechanically check a certificate. Returns (ok: bool, info: dict).
 
-    Checks (each linear in |tau|):
+    Delegates to verify_trace with start_expr = x0. For certificates produced
+    by ProofMachine.run / run_program, checks:
       1. steps[0].in == x0           (initial abstraction covers the input)
       2. RULES[op](in) == out        (each abstract transformer application
                                       re-derived, not trusted)
@@ -205,40 +338,12 @@ def verify_certificate(cert):
                                       Q(x,y) := y = E(x0); for MOD steps the
                                       0 <= y < m bound is checked by eval
                                       under Python mod semantics)
+    Branch nodes additionally undergo B1-B4 (guard re-derivation, neural
+    guard agreement, taken-consistency, branch sub-trace validity).
     """
     try:
         x0 = int(cert["x0"])
         result = int(cert["result"])
-        steps = cert["steps"]
-        if not steps:
-            return False, {"error": "empty trace"}
-        # 1. initial abstraction
-        first_in = expr_from_json(steps[0]["in"])
-        if first_in != ("var",):
-            return False, {"error": f"trace does not start at x0: {first_in}"}
-        prev_out = None
-        max_nodes = 0
-        for i, s in enumerate(steps):
-            op = s["op"]
-            if op not in RULES:
-                return False, {"error": f"unknown op {op} at step {i}"}
-            in_e = expr_from_json(s["in"])
-            out_e = expr_from_json(s["out"])
-            # 2. re-derive: the verifier applies its OWN rule table
-            derived = RULES[op](in_e)
-            if derived != out_e:
-                return False, {"error": f"step {i} ({op}): re-derivation mismatch",
-                               "derived": canon(derived), "claimed": canon(out_e)}
-            # 3. chaining
-            if prev_out is not None and in_e != prev_out:
-                return False, {"error": f"step {i}: input != previous output"}
-            prev_out = out_e
-            max_nodes = max(max_nodes, expr_size(out_e))
-        # 4. final abstraction implies the postcondition
-        if eval_expr(prev_out, x0) != result:
-            return False, {"error": "final expression does not evaluate to claimed result",
-                           "eval": eval_expr(prev_out, x0), "claimed": result}
-        return True, {"steps": len(steps), "max_expr_nodes": max_nodes,
-                      "final_expr": canon(prev_out)}
+        return verify_trace(cert["steps"], x0, ("var",), result)
     except Exception as ex:  # a malformed certificate fails closed
         return False, {"error": f"verifier exception: {type(ex).__name__}: {ex}"}

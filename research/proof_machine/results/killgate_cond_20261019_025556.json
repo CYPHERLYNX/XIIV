@@ -1,0 +1,105 @@
+{
+  "gate": "conditional-5.6-task2-pm-only",
+  "depths": [
+    1,
+    2,
+    4,
+    8,
+    16,
+    32,
+    64,
+    100
+  ],
+  "n_per_depth": 1000,
+  "depth_semantics": "taken-path primitive count (max-path; branches equal length)",
+  "per_depth": {
+    "1": {
+      "accuracy": 1.0,
+      "cert_validity": 1.0,
+      "loud_halts": 0,
+      "branch_stats": {
+        "n_branches": 0,
+        "frac_then": 0.0
+      },
+      "eval_seconds": 0.07788324356079102
+    },
+    "2": {
+      "accuracy": 1.0,
+      "cert_validity": 1.0,
+      "loud_halts": 0,
+      "branch_stats": {
+        "n_branches": 0,
+        "frac_then": 0.0
+      },
+      "eval_seconds": 0.07650518417358398
+    },
+    "4": {
+      "accuracy": 1.0,
+      "cert_validity": 1.0,
+      "loud_halts": 0,
+      "branch_stats": {
+        "n_branches": 655,
+        "frac_then": 0.1267175572519084
+      },
+      "eval_seconds": 0.18030118942260742
+    },
+    "8": {
+      "accuracy": 1.0,
+      "cert_validity": 1.0,
+      "loud_halts": 0,
+      "branch_stats": {
+        "n_branches": 1423,
+        "frac_then": 0.11173576950105411
+      },
+      "eval_seconds": 0.40270042419433594
+    },
+    "16": {
+      "accuracy": 1.0,
+      "cert_validity": 1.0,
+      "loud_halts": 0,
+      "branch_stats": {
+        "n_branches": 3006,
+        "frac_then": 0.11443779108449767
+      },
+      "eval_seconds": 0.882390022277832
+    },
+    "32": {
+      "accuracy": 1.0,
+      "cert_validity": 1.0,
+      "loud_halts": 0,
+      "branch_stats": {
+        "n_branches": 6279,
+        "frac_then": 0.11052715400541488
+      },
+      "eval_seconds": 2.3076181411743164
+    },
+    "64": {
+      "accuracy": 1.0,
+      "cert_validity": 1.0,
+      "loud_halts": 0,
+      "branch_stats": {
+        "n_branches": 12563,
+        "frac_then": 0.1185226458648412
+      },
+      "eval_seconds": 8.72668743133545
+    },
+    "100": {
+      "accuracy": 1.0,
+      "cert_validity": 1.0,
+      "loud_halts": 0,
+      "branch_stats": {
+        "n_branches": 19785,
+        "frac_then": 0.11988880464998737
+      },
+      "eval_seconds": 19.026068687438965
+    }
+  },
+  "slope_b": 0.0,
+  "slope_t": 0.0,
+  "t_crit_005": 2.447,
+  "A_CIF_100": 1.0,
+  "V_CIF_100": 1.0,
+  "baseline_separation": "QUEUED: transformer baseline needs retraining on the conditional program encoding; not part of this PM-only gate",
+  "kill_triggers_pm_only": [],
+  "verdict_pm_only": "PASS"
+}

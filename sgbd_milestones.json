@@ -1,1 +1,22 @@
-{"current_trained_estimate":133000000,"initially_trained":133000000,"initially_trained_source":"133M seed rung (grown lineage)","last_updated":"2026-10-13T05:43:00+05:30","milestone_step":100000000,"milestones_notified":[],"model":"XIIV-1B","notes":"Fahad requested notification after each 100M params trained. Milestones at 200M, 300M, ..., 900M total trained.","sgbd_blocks":{"blocks_completed":0,"n_blocks":8,"params_per_block":97900000},"total_params":916000000}
+{
+  "current_trained_estimate": 622500000,
+  "initially_trained": 133000000,
+  "initially_trained_source": "133M seed rung (grown lineage)",
+  "last_updated": "2026-10-20T08:10:00+04:00",
+  "milestone_step": 100000000,
+  "milestones_notified": [
+    200000000,
+    300000000,
+    400000000,
+    500000000,
+    600000000
+  ],
+  "model": "XIIV-1B",
+  "notes": "Fahad requested notification after each 100M params trained. Milestones at 200M, 300M, ..., 900M total trained. Estimate = seed-trained 133M + completed_blocks x 97.9M/block. Corrected 2026-10-18 ~04:45 IST: guardian's update_milestones() only bumps blocks_completed, not the estimate \u2014 block 1 finished 1000/1000 steps 22:18 UTC 2026-10-17 (block1_final.pt written) but estimate stayed at 230.9M. Recomputed to 328.8M -> 300M milestone reached; notified via milestone watch. Block 3 finished 1000/1000 steps on Kaggle T4 2026-10-19 (~07:14 UTC); loss 1375.7->27.2; estimate 426.7M -> 400M milestone reached. Block 2 (cursed block) finished 1000/1000 steps 2026-10-20 ~02:14 UTC after 4 deaths; estimate 524.6M -> 500M milestone reached; notified directly 06:16 +04. Block 4 finished 1000/1000 steps on Kaggle T4 (kernel COMPLETE 2026-10-20 ~07:59 +04); loss 1503.2->36.2; checkpoint verified (keys/step/loss_hist); estimate 622.5M -> 600M milestone reached.",
+  "sgbd_blocks": {
+    "blocks_completed": 5,
+    "n_blocks": 8,
+    "params_per_block": 97900000
+  },
+  "total_params": 916000000
+}

@@ -82,7 +82,20 @@ def main():
     ap.add_argument("--resume-step", type=int, default=0,
                     help="resume from out_dir/block{b}_step{resume_step}.pt "
                          "(restores layer weights, projections, optimizer, step)")
+    ap.add_argument("--device", type=str, default="cpu",
+                    help="torch device: cpu or cuda (falls back to cpu if "
+                         "cuda requested but unavailable)")
+    ap.add_argument("--student-ckpt", type=str, default=None,
+                    help="override path to the 1B grown-init checkpoint "
+                         "(default: checkpoints_1b_gn/ckpt_8218.pt under repo)")
     args = ap.parse_args()
+
+    if args.device == "cuda" and not torch.cuda.is_available():
+        print("[train] WARNING: cuda requested but unavailable — using cpu",
+              flush=True)
+        args.device = "cpu"
+    device = torch.device(args.device)
+    print(f"[train] device: {device}", flush=True)
 
     b = args.block
     s_start, s_end = BLOCKS[b]
@@ -91,14 +104,16 @@ def main():
     out_dir = REPO / args.out_dir / f"block{b}"
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    ckpt = torch.load(STUDENT_CKPT, map_location="cpu", weights_only=False)
+    ckpt_path = Path(args.student_ckpt) if args.student_ckpt else STUDENT_CKPT
+    ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=False)
     layers, cfg = build_student_block(s_start, s_end, ckpt["model"])
     del ckpt
     gc.collect()
 
     # dimension scaffolding (trained jointly, discarded at composition)
-    in_proj = nn.Linear(TEACHER_DIM, STUDENT_DIM)
-    out_proj = nn.Linear(TEACHER_DIM, STUDENT_DIM)
+    in_proj = nn.Linear(TEACHER_DIM, STUDENT_DIM).to(device)
+    out_proj = nn.Linear(TEACHER_DIM, STUDENT_DIM).to(device)
+    layers = layers.to(device)
 
     params = list(layers.parameters()) + list(in_proj.parameters()) \
         + list(out_proj.parameters())
@@ -108,7 +123,7 @@ def main():
     # RoPE tables for the student block
     head_dim = STUDENT_DIM // cfg.n_heads
     cos, sin = build_rope_cache(SEQ_LEN, head_dim, cfg.rope_theta,
-                                "cpu", torch.float32)
+                                device, torch.float32)
 
     # chunk files for this block's teacher layers
     chunks = sorted((cache_dir).glob(f"layer{t_start:02d}_c*.pt"))
@@ -143,6 +158,11 @@ def main():
         in_proj.load_state_dict(r["in_proj"])
         out_proj.load_state_dict(r["out_proj"])
         opt.load_state_dict(r["opt"])
+        # optimizer state tensors were saved on cpu — move to device
+        for st in opt.state.values():
+            for k, v in list(st.items()):
+                if torch.is_tensor(v):
+                    st[k] = v.to(device)
         step = int(r["step"])
         loss_hist = r.get("loss_hist", [])
         print(f"[train] resumed from {resume_path} at step {step}", flush=True)
@@ -172,9 +192,9 @@ def main():
                     break
                 idx = perm[s:s + args.batch_size]
                 opt.zero_grad()
-                x = in_proj(t_in[idx])
+                x = in_proj(t_in[idx].to(device))
                 with torch.no_grad():
-                    tgt = out_proj(t_out[idx])
+                    tgt = out_proj(t_out[idx].to(device))
                 pred = block_forward(x)
                 loss = torch.nn.functional.mse_loss(pred, tgt)
                 loss.backward()

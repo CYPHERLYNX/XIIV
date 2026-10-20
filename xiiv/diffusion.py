@@ -138,6 +138,10 @@ def build_priority(length: int, order: str, device="cpu",
       middle-last    — tiered: everything except the middle third first
       random         — random permutation, drawn from ``generator``
                        (pass the sampler's seeded generator for determinism)
+      guarantee_load — GLOD: per-position constraint-interaction density
+                       (see guarantee_load_priority); needs the parsed
+                       constraint sets, so it is constructed in
+                       DenoisingState.__init__, not here.
 
     Implemented as priority-weighted top-k selection:
     score = priority * 1e6 + confidence, so priority tiers dominate and
@@ -164,11 +168,84 @@ def build_priority(length: int, order: str, device="cpu",
     elif order == "random":
         pr = torch.rand(length, device=device, generator=generator)
         return pr  # already on device
+    elif order == "guarantee_load":
+        # Handled by guarantee_load_priority() in DenoisingState.__init__
+        # (needs the parsed constraint sets, not just the length).
+        # Reaching here means it was called without constraints.
+        raise ValueError(
+            "order='guarantee_load' requires constraint sets: construct "
+            "via DenoisingState(order='guarantee_load', constraints=...)")
     else:
         raise ValueError(f"unknown order: {order!r} "
                          f"(confidence|left-to-right|right-to-left|"
-                         f"ends-first|middle-last|random)")
+                         f"ends-first|middle-last|random|guarantee_load)")
     return pr.to(device)
+
+
+def guarantee_load_priority(length: int, frozen: torch.Tensor,
+                            anchors: dict, required_counts: dict,
+                            at_most: dict, forbidden_phrases: list,
+                            device="cpu", prox_window: int = 3) -> torch.Tensor:
+    """Per-position GUARANTEE LOAD (higher = unmasked earlier).
+
+    GLOD (Guarantee-Load-Ordered Decoding), a XIIV invention: the MRV
+    (most-constrained-variable-first) heuristic from constraint
+    satisfaction, applied to masked-diffusion denoising under
+    guarantee-native constraints.
+
+    Insight: not all masked positions are equally hard to certificate.
+    A position adjacent to frozen/anchored text must cohere with
+    immutable neighbors; a canvas laced with forbidden phrases is a
+    minefield where one wrong fill creates a violation; tight
+    required-count slot reservations leave no room for error. Filling
+    the most constrained positions FIRST — while the canvas holds
+    maximum flexibility — reduces endgame force-placements and
+    guarantee conflicts (measurable in the intervention trail).
+
+    This is orthogonal to GACD (adaptive_decode): GACD controls HOW
+    MANY positions fill per step (parallelism); GLOD controls WHICH
+    positions (ordering). They compose.
+
+    Load score per position (static, computed once at init):
+      +2.0 decaying to +1.0  within prox_window of frozen/anchored text
+      +1.0 * required_tightness  (uniform; sum(required)/length)
+      +0.8 * phrase_density      (uniform; capped, #forbidden_phrases/10)
+      +0.5                       (uniform; if any at_most caps exist)
+
+    Uniform terms set the tier; frozen proximity differentiates
+    positions. Like other orders, priority tiers dominate via
+    score = priority * 1e6 + confidence, so confidence still breaks
+    ties within a tier.
+    """
+    pr = torch.zeros(length, dtype=torch.float32, device=device)
+    # Frozen/anchor proximity: distance-decayed load.
+    fixed = torch.zeros(length, dtype=torch.bool, device=device)
+    if frozen is not None:
+        fixed |= frozen.to(device).bool()
+    for p in anchors:
+        if 0 <= p < length:
+            fixed[p] = True
+    if bool(fixed.any()):
+        idx = torch.arange(length, device=device)
+        # distance to nearest fixed position
+        fixed_idx = torch.where(fixed)[0].float()
+        d = torch.abs(idx.float().unsqueeze(1) - fixed_idx.unsqueeze(0))
+        dmin = d.min(dim=1).values
+        near = dmin <= prox_window
+        # +2.0 adjacent, decaying linearly to +1.0 at the window edge
+        pr[near] += 2.0 - (dmin[near] / prox_window)
+    # Required-count tightness: uniform pressure term.
+    total_required = sum(required_counts.values()) if required_counts else 0
+    if total_required > 0 and length > 0:
+        pr += 1.0 * (total_required / length)
+    # Forbidden-phrase minefield density: uniform pressure term.
+    n_phrases = len(forbidden_phrases) if forbidden_phrases else 0
+    if n_phrases > 0:
+        pr += 0.8 * min(1.0, n_phrases / 10.0)
+    # at_most alphabet restriction: uniform pressure term.
+    if at_most:
+        pr += 0.5
+    return pr
 
 
 def _count_occurrences(ids_list, phrase):
@@ -522,8 +599,17 @@ class DenoisingState:
 
         # seeded generator threaded through: seed -> identical output for
         # every order preset, including "random".
-        self.priority = build_priority(self.length, order, device,
-                                       generator=self.g)
+        if order == "guarantee_load":
+            # GLOD: constraint-aware fill ordering (see
+            # guarantee_load_priority). Computed here because it needs
+            # the parsed constraint sets.
+            self.priority = guarantee_load_priority(
+                self.length, self.frozen, self.anchors,
+                self.required_counts, self.at_most,
+                self.forbidden_phrases, device)
+        else:
+            self.priority = build_priority(self.length, order, device,
+                                           generator=self.g)
         self.conf = torch.zeros(self.length, dtype=torch.float32,
                                 device=device)
         self.steps_remaining = int(steps)

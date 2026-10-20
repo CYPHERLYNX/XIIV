@@ -1,0 +1,16 @@
+{
+  "current_trained_estimate": 133000000,
+  "initially_trained": 133000000,
+  "initially_trained_source": "133M seed rung (grown lineage)",
+  "last_updated": "2026-10-17T05:42:56+05:30",
+  "milestone_step": 100000000,
+  "milestones_notified": [],
+  "model": "XIIV-1B",
+  "notes": "Fahad requested notification after each 100M params trained. Milestones at 200M, 300M, ..., 900M total trained.",
+  "sgbd_blocks": {
+    "blocks_completed": 1,
+    "n_blocks": 8,
+    "params_per_block": 97900000
+  },
+  "total_params": 916000000
+}

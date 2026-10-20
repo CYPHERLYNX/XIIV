@@ -1,0 +1,71 @@
+{
+  "gate": "5.6-task-1-logic-chains",
+  "depths": [
+    1,
+    2,
+    4,
+    8,
+    16,
+    32,
+    64,
+    100
+  ],
+  "n_per_depth": 1000,
+  "per_depth": {
+    "1": {
+      "accuracy": 1.0,
+      "cert_validity": 1.0,
+      "mean_cert_steps": 1.0,
+      "eval_seconds": 0.12585687637329102
+    },
+    "2": {
+      "accuracy": 1.0,
+      "cert_validity": 1.0,
+      "mean_cert_steps": 2.0,
+      "eval_seconds": 0.19085693359375
+    },
+    "4": {
+      "accuracy": 1.0,
+      "cert_validity": 1.0,
+      "mean_cert_steps": 4.0,
+      "eval_seconds": 0.35037803649902344
+    },
+    "8": {
+      "accuracy": 1.0,
+      "cert_validity": 1.0,
+      "mean_cert_steps": 8.0,
+      "eval_seconds": 0.6720907688140869
+    },
+    "16": {
+      "accuracy": 1.0,
+      "cert_validity": 1.0,
+      "mean_cert_steps": 16.0,
+      "eval_seconds": 1.3042097091674805
+    },
+    "32": {
+      "accuracy": 1.0,
+      "cert_validity": 1.0,
+      "mean_cert_steps": 32.0,
+      "eval_seconds": 2.8370697498321533
+    },
+    "64": {
+      "accuracy": 1.0,
+      "cert_validity": 1.0,
+      "mean_cert_steps": 64.0,
+      "eval_seconds": 5.501765489578247
+    },
+    "100": {
+      "accuracy": 1.0,
+      "cert_validity": 1.0,
+      "mean_cert_steps": 100.0,
+      "eval_seconds": 8.517335176467896
+    }
+  },
+  "slope_b": 0.0,
+  "slope_t": 0.0,
+  "t_crit_005": 2.447,
+  "A_BOOL_100": 1.0,
+  "V_BOOL_100": 1.0,
+  "verdict_pm_only": "PASS",
+  "kill_triggers": []
+}

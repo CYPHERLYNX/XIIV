@@ -1,10 +1,10 @@
 {
   "_monitor_run": {
-    "at": "2026-10-20T14:13:20.002312+00:00",
-    "note": "2026-10-20T18:12 +04 run: no build process (anchored pgrep empty); build.log stale since 2026-10-17 04:29 UTC = expected (all complete/exhausted/deferred). monitor_downloads.sh -> All datasets complete (unchanged). Disk 22G free OK. Stall check N/A (no build running). Guardian SKIP 0.41GB RAM < 2.5GB (normal; consecutive RAM skips in guardian log, no launch failures). No chat report (routine)."
+    "at": "2026-10-21T09:42:57Z",
+    "note": "2026-10-21T09:42:57+0000 run: no build process (anchored pgrep exit 1); build.log stale since 2026-10-17 (nothing running since). monitor_downloads.sh -> All datasets complete (6 runnable DONE; stackv2 HF-gated, megamath schema-deferred, unchanged). Disk 22G free OK. Stall N/A. sgbd_guardian SKIP: 0.49GB RAM available (need 2.5GB); 15 consecutive SKIP-only entries in guardian log, no launch failures (04:42 UTC spike to 2.40GB still under gate). Box RAM pressure unchanged; no local training possible. No report triggers."
   },
   "dclm": {
-    "at": "2026-10-19T19:43:54.614994+00:00",
+    "at": "2026-10-21T08:13:04.060586+00:00",
     "bin": "present",
     "done": true,
     "note": "2026-10-17T05:14 IST: dclm build COMPLETE - DONE in log, 9950636800/10B (99.51%), docs=7637023; script skipped (99% rule), queue advanced to stackexchange",
@@ -17,7 +17,7 @@
     "tokens": 3308079744
   },
   "megamath": {
-    "at": "2026-10-20T10:43:43.977860+00:00",
+    "at": "2026-10-21T08:13:04.060586+00:00",
     "bin": "present",
     "note": "deferred 2026-10-16: LLM360/MegaMath upstream schema break (no text column)",
     "tokens": 0

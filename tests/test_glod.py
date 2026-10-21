@@ -99,7 +99,7 @@ def test_glod_guarantees_hold():
         rep = check_constraints(out, {"required_ids": required,
                                       "forbidden_ids": [200],
                                       "at_most": {50: 2}}, cfg.mask_id)
-        assert rep["ok"], f"seed {seed}: {rep}"
+        assert all(rep.values()), f"seed {seed}: {rep}"
     print("PASS test_glod_guarantees_hold")
 
 

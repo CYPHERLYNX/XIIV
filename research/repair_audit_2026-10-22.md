@@ -82,3 +82,17 @@ XIIV and Lacuna, split by who can unblock it. Status as of 2026-10-22
   checkpoint (~2GB) alongside the superseded artifact.
 - Kaggle CLI reinstalled persistently (uv tool) after the 17:22
   reboot wipe; auth verified live 2026-10-22.
+
+## Completion addendum (2026-10-22 evening)
+Agent-side queue: ALL DONE — 5B scale plan (70e36ea), growth fix
+(00e0dba), Kaggle secrets mode (60f2624), CGMS + partial-cert gate
+(b54bfc6), selective looping prototype (eca6201, claim not
+reproduced), VGR + fair retest (1912e36: GLOD payoff CLOSED, CSM
+routing CEILING), NCM probe 3 (8fe82b0), Guarantee-MMD testbed 2
+(0f9910d: marginal PASS p=0.0175, paired FAIL), CGMS snapshot fix,
+Lacuna gate re-verified (192/192 + isolated install). XIIV suite
+216/216. Snapshot pushed: remote main 06dc350a (26 files).
+Still open (user-only / environmental, unchanged): B1 Kaggle
+Secrets HF_TOKEN (probe kernel 2026-10-22 confirmed NOT configured),
+B2 Lacuna distribution + PAT, checkpoint re-issue (RAM window),
+block 5 launch (follows B1), real-hardware Lacuna validation.

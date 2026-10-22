@@ -101,3 +101,14 @@ that extra distributional pull can actually change discrete outcomes.
 *Run: 50.8 min wall-clock, CPU-only. Checkpoints:
 `research/checkpoints_gmmd/arm_lam{0.0,0.3,1.0,3.0}.pt`. Full log:
 `research/invention_gmmd_run.log`.*
+
+## UPDATE (2026-10-22, later) — stronger testbed run
+
+The (a)-(c) fairer testbed specified above was built and run:
+research/gmmd_testbed2_probe.py / gmmd_testbed2_results.md.
+Stability gate passed (RSFT control 0.290, no drift recurrence).
+**Marginal MMD arm: 0.190 vs control 0.290, McNemar p=0.0175,
+guardrails intact — PASS at toy scale.** Paired arm: FAIL
+(0.320, p=0.519) at 75 pairs. Mechanism standing updated from
+"unproven" to "toy-scale PASS (marginal); replication and
+scale-up owed". This file's pilot record is unchanged history.

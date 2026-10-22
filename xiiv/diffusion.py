@@ -321,6 +321,127 @@ def check_constraints(ids: torch.Tensor, constraints: dict | None,
     }
 
 
+def _js_divergence_topk(prev_ids, prev_probs, cur_ids, cur_probs):
+    """Jensen-Shannon divergence between two distributions given as
+    top-K (ids, probs) lists, over the union of their supports
+    (missing mass treated as 0 — the standard top-K approximation
+    used by stability samplers)."""
+    p = {int(i): float(v) for i, v in zip(prev_ids, prev_probs)}
+    q = {int(i): float(v) for i, v in zip(cur_ids, cur_probs)}
+    js = 0.0
+    for tok in set(p) | set(q):
+        pv, qv = p.get(tok, 0.0), q.get(tok, 0.0)
+        mv = 0.5 * (pv + qv)
+        if pv > 0.0:
+            js += 0.5 * pv * math.log(pv / mv)
+        if qv > 0.0:
+            js += 0.5 * qv * math.log(qv / mv)
+    return js
+
+
+def _window_feasible(ids_list, phrase, lo, hi, mask_id):
+    """True if `phrase` can still be placed contiguously inside
+    [lo, hi): every window position is either masked or already holds
+    the phrase token for that offset."""
+    L = len(phrase)
+    for s in range(lo, hi - L + 1):
+        if all(ids_list[s + j] == mask_id or ids_list[s + j] == phrase[j]
+               for j in range(L)):
+            return True
+    return False
+
+
+def partial_certificate_check(ids, constraints, mask_id, frozen=None):
+    """Sound partial-canvas certificate check (CGMS fourth gate).
+
+    Returns (True, "certifiable") when the partial canvas — filled
+    positions fixed, `mask_id` positions still open — can still be
+    completed into a canvas that passes check_constraints, and
+    (False, reason) ONLY when a violation is already unavoidable:
+
+    - a filled position contradicts an anchor;
+    - a forbidden token is already filled in;
+    - an at_most cap is already exceeded by filled tokens;
+    - a forbidden phrase is already completed in a fully-filled window
+      beyond its allowance;
+    - required occurrences still missing exceed the fillable masked
+      slots left;
+    - order pairs: filled occurrences of a and b already interleave,
+      or a required phrase has no feasible window left on its side of
+      an already-placed counterpart.
+
+    The check never fails a completable canvas (the fail direction is
+    sound); it may pass a canvas that later fails for subtler reasons —
+    the final check_constraints remains the verdict. `frozen` (bool
+    tensor/list), when given, marks positions that can never change:
+    frozen masks are not fillable slots.
+    """
+    c = constraints or {}
+    if torch.is_tensor(ids):
+        ids_list = ids.cpu().tolist()
+    else:
+        ids_list = list(ids)
+    N = len(ids_list)
+    filled = [v != mask_id for v in ids_list]
+    if frozen is None:
+        fillable = [not f for f in filled]
+    else:
+        fr = frozen.cpu().tolist() if torch.is_tensor(frozen) else list(frozen)
+        fillable = [(not filled[i]) and not fr[i] for i in range(N)]
+    n_slots = sum(fillable)
+
+    for p, t in (c.get("anchors") or {}).items():
+        p = int(p)
+        if 0 <= p < N and filled[p] and ids_list[p] != int(t):
+            return False, f"anchor_conflict@{p}"
+
+    forbidden = c.get("forbidden_ids") or []
+    for t in forbidden:
+        if int(t) in ids_list and any(
+                filled[i] and ids_list[i] == int(t) for i in range(N)):
+            return False, f"forbidden_present:{int(t)}"
+
+    for t, cap in (c.get("at_most") or {}).items():
+        if ids_list.count(int(t)) > int(cap):
+            return False, f"cap_exceeded:{int(t)}"
+
+    for phrase, max_allowed in (c.get("forbidden_phrases") or []):
+        phrase = list(phrase)
+        # _count_occurrences only matches fully-filled windows: a mask
+        # inside the window cannot equal a phrase token.
+        if _count_occurrences(ids_list, phrase) > int(max_allowed):
+            return False, "forbidden_phrase_completed"
+
+    required_counts = dict(c.get("required_counts") or {})
+    for t in (c.get("required_ids") or []):
+        required_counts.setdefault(int(t), 1)
+    missing = 0
+    for t, n in required_counts.items():
+        have = ids_list.count(int(t))
+        if have < int(n):
+            missing += int(n) - have
+    if missing > n_slots:
+        return False, f"required_infeasible:missing={missing}>slots={n_slots}"
+
+    for a, b in (c.get("order_pairs") or []):
+        a, b = list(a), list(b)
+        sa = _phrase_spans(ids_list, a)
+        sb = _phrase_spans(ids_list, b)
+        if sa and sb and max(s + len(a) for s in sa) > min(sb):
+            return False, "order_violated"
+        if sb and not sa:
+            # a is required (order promotes it) and must end before the
+            # earliest filled b starts.
+            if not _window_feasible(ids_list, a, 0, min(sb), mask_id):
+                return False, "order_infeasible:a_before_b"
+        if sa and not sb:
+            lo = max(s + len(a) for s in sa)
+            if not _window_feasible(ids_list, b, lo, N, mask_id):
+                return False, "order_infeasible:b_after_a"
+
+    return True, "certifiable"
+
+
 class DenoisingState:
     """Full resumable state of one constrained denoising run.
 
@@ -365,7 +486,12 @@ class DenoisingState:
                  adapt_anchor: float = 0.5,
                  adapt_thr_min: float = 0.5,
                  adapt_thr_max: float = 0.99,
-                 guarantee=None):
+                 guarantee=None,
+                 cgms: bool = False,
+                 cgms_tau_c: float = 0.6,
+                 cgms_p_min: int = 2,
+                 cgms_delta: float = 0.1,
+                 cgms_topk: int = 16):
         self.length = int(length)
         self.mask_id = int(mask_id)
         self.eos_id = int(eos_id)
@@ -417,6 +543,24 @@ class DenoisingState:
         # Runtime policy, not captured by to_snapshot/from_snapshot (same
         # as the adaptive_decode tunables): re-attach after resuming.
         self.guarantee = guarantee
+        # CGMS (Certificate-Gated Mutual-Stability unmasking): LESS-style
+        # 3-gate stability (confidence + top-1 persistence + inter-step
+        # top-K JS divergence) plus XIIV's fourth gate — the partial
+        # canvas must stay certifiable (partial_certificate_check)
+        # before a position commits. Runtime policy like `guarantee`:
+        # not snapshotted. Disabled when a GCDD `guarantee` object owns
+        # commits. See research/daily_research_2026-10-20.md.
+        self.cgms = bool(cgms) and guarantee is None
+        self.cgms_tau_c = float(cgms_tau_c)
+        self.cgms_p_min = int(cgms_p_min)
+        self.cgms_delta = float(cgms_delta)
+        self.cgms_topk = int(cgms_topk)
+        self._cgms_prev_top1 = None      # (L,) last step's argmax ids
+        self._cgms_persist = None        # (L,) consecutive same-top1 count
+        self._cgms_prev_topk = None      # (ids, probs) last step's top-K
+        self._cgms_js = None             # (L,) last inter-step JS
+        self.cgms_stats = {"commits": 0, "cert_rejects": 0,
+                           "fallbacks": 0, "defers": 0, "steps": 0}
         self.device = device
         self.vocab_size = vocab_size
         # Optional visual prefix (multimodal scaffold): (N, d) or (1, N, d),
@@ -743,6 +887,85 @@ class DenoisingState:
 
         return True
 
+    def _cgms_commit(self, top1, budget) -> bool:
+        """CGMS fill for one non-final step: commit up to `budget`
+        masked positions that pass all four gates — confidence >=
+        cgms_tau_c, top-1 persistence >= cgms_p_min, inter-step JS <=
+        cgms_delta, and the partial canvas stays certifiable with the
+        top-1 token placed (partial_certificate_check). Commits are
+        deterministic top-1 placements in stability order. If no
+        eligible position passes, fall back to the single most-stable
+        certifiable position (anti-stall); if even that fails, defer
+        the step — the final step's standard path still guarantees
+        completion, so a deferral can never strand the canvas.
+        Always returns True (CGMS owned this step's fill decision)."""
+        conf = self.conf.detach()
+        js, persist = self._cgms_js, self._cgms_persist
+        constraints = {
+            "required_counts": self.required_counts,
+            "required_ids": self.required_ids,
+            "forbidden_ids": self.forbidden_ids,
+            "anchors": self.anchors,
+            "at_most": self.at_most,
+            "forbidden_phrases": self.forbidden_phrases,
+            "order_pairs": self.order_pairs,
+        }
+        eligible = [p for p in range(self.length)
+                    if bool(self.masked[p])
+                    and float(conf[p]) >= self.cgms_tau_c
+                    and int(persist[p]) >= self.cgms_p_min
+                    and float(js[p]) <= self.cgms_delta]
+        eligible.sort(key=lambda p: float(conf[p]) - float(js[p]),
+                      reverse=True)
+        placed = []
+        used_fallback = False
+
+        def try_place(pos):
+            tok = int(top1[pos])
+            if tok == self.mask_id or tok in self.forbidden_ids:
+                return False
+            if tok in self._capped_tokens() \
+                    or tok in self._completing_tokens(pos):
+                self.cgms_stats["cert_rejects"] += 1
+                return False
+            trial = self.x.clone()
+            trial[pos] = tok
+            ok, _reason = partial_certificate_check(
+                trial, constraints, self.mask_id, frozen=self.frozen)
+            if not ok:
+                self.cgms_stats["cert_rejects"] += 1
+                return False
+            self.x[pos] = tok
+            placed.append(pos)
+            return True
+
+        for pos in eligible:
+            if len(placed) >= budget:
+                break
+            try_place(pos)
+        if not placed:
+            cand = [p for p in range(self.length) if bool(self.masked[p])]
+            cand.sort(key=lambda p: float(conf[p]) - float(js[p]),
+                      reverse=True)
+            for pos in cand:
+                if try_place(pos):
+                    used_fallback = True
+                    self.cgms_stats["fallbacks"] += 1
+                    break
+        if placed:
+            self.cgms_stats["commits"] += len(placed)
+            self.interventions.append({
+                "step": self.steps_remaining, "kind": "cgms_commit",
+                "detail": {"positions": placed, "fallback": used_fallback},
+            })
+        else:
+            self.cgms_stats["defers"] += 1
+            self.interventions.append({
+                "step": self.steps_remaining, "kind": "cgms_defer",
+                "detail": {},
+            })
+        return True
+
     def step(self, model) -> bool:
         """Run one denoise iteration. Returns True if more work remains."""
         if self.finished:
@@ -781,6 +1004,35 @@ class DenoisingState:
         probs = torch.softmax(logits, dim=-1)
         conf, _ = probs.max(dim=-1)                             # (L,)
         self.conf = conf
+
+        # CGMS: update per-position stability history from this step's
+        # predictive distributions (top-1 persistence + inter-step
+        # top-K JS divergence) before any selection happens.
+        cgms_top1 = None
+        if self.cgms:
+            self.cgms_stats["steps"] += 1
+            cgms_top1 = probs.argmax(dim=-1)
+            K = min(self.cgms_topk, probs.shape[-1])
+            cur_p, cur_i = probs.topk(K, dim=-1)
+            if self._cgms_prev_top1 is not None:
+                same = cgms_top1 == self._cgms_prev_top1
+                self._cgms_persist = torch.where(
+                    same, self._cgms_persist + 1,
+                    torch.ones_like(self._cgms_persist))
+                prev_i, prev_p = self._cgms_prev_topk
+                js = torch.zeros(self.length, device=probs.device)
+                for pos in range(self.length):
+                    js[pos] = _js_divergence_topk(
+                        prev_i[pos].tolist(), prev_p[pos].tolist(),
+                        cur_i[pos].tolist(), cur_p[pos].tolist())
+                self._cgms_js = js
+            else:
+                self._cgms_persist = torch.ones(
+                    self.length, dtype=torch.long, device=probs.device)
+                self._cgms_js = torch.zeros(self.length,
+                                            device=probs.device)
+            self._cgms_prev_top1 = cgms_top1
+            self._cgms_prev_topk = (cur_i, cur_p)
 
         # required counts absent from the whole canvas (prompt/frozen count).
         # missing is a multiset: one entry per still-needed occurrence.
@@ -910,7 +1162,15 @@ class DenoisingState:
             adapt_info = {"thr": thr, "mean_masked_conf": mean_mc,
                           "k_adapt": k_adapt, "k_sched": k_sched,
                           "k_floor": k_floor}
-        if k > 0:
+        # CGMS owns the fill on non-final steps when enabled: only
+        # statistically stable, certificate-passing positions commit.
+        # The final step always runs the standard path below, so the
+        # completion and endgame guarantees are inherited unchanged.
+        cgms_handled = False
+        if self.cgms and self.steps_remaining > 1 and k > 0 \
+                and bool(self.masked.any()):
+            cgms_handled = self._cgms_commit(cgms_top1, k)
+        if k > 0 and not cgms_handled:
             # LOOKAHEAD SATISFIABILITY (world-first for semantic contracts):
             # Before accepting this batch, verify the contract remains
             # satisfiable. If filling k positions would create a dead end,
@@ -1246,6 +1506,21 @@ class DenoisingState:
         st.adapt_thr_max = 0.99
         st.guarantee = None
         st.interventions = []
+        # CGMS runtime policy (added 2026-10-22; same not-snapshotted
+        # class as guarantee/adaptive above — defaults required or
+        # step() AttributeErrors on resumed states, as the full suite
+        # caught the day CGMS landed).
+        st.cgms = False
+        st.cgms_tau_c = 0.6
+        st.cgms_p_min = 2
+        st.cgms_delta = 0.1
+        st.cgms_topk = 16
+        st._cgms_prev_top1 = None
+        st._cgms_persist = None
+        st._cgms_prev_topk = None
+        st._cgms_js = None
+        st.cgms_stats = {"commits": 0, "cert_rejects": 0,
+                         "fallbacks": 0, "defers": 0, "steps": 0}
         return st
 
 

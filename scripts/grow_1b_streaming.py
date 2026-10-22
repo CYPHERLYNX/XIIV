@@ -60,6 +60,33 @@ def _widen_cols(w, g, count, noise_scale, gen):
     return out
 
 
+def _widen_kv_streaming(w, g, count, noise_scale, gen):
+    """Widen a contract-attention KV projection [2*d_old, d_old] -> [2*d_new, d_new].
+
+    The K and V halves are widened separately with the d-map (the same
+    rows+cols treatment q.weight gets) and restacked. The generic
+    _widen_rows path must NEVER be applied to this tensor directly: its
+    row map is d-length, so it silently keeps only K-half rows and drops
+    the V half. That bug produced the truncated XIIV-1B checkpoint
+    (layers 0-26 kv [1280, 1280] instead of [2560, 1280]); repaired
+    2026-10-22 per research/scale_plan_5b.md R-A. grow_checkpoint.py's
+    _widen_kv is the equivalent split-half operator for that path.
+    """
+    d_old = w.shape[1]
+    assert w.shape[0] == 2 * d_old, \
+        f"kv shape {tuple(w.shape)} is not [2d, d]; refusing to widen"
+    d_new = g.shape[0]
+    parts = []
+    for half in (w[:d_old], w[d_old:]):
+        h = _widen_rows(half, g, noise_scale, gen)
+        h = _widen_cols(h, g, count, noise_scale, gen)
+        parts.append(h)
+    out = torch.cat(parts, dim=0)
+    assert out.shape == (2 * d_new, d_new), \
+        f"kv widened to {tuple(out.shape)}, expected {(2 * d_new, d_new)}"
+    return out
+
+
 def _noise_like(shape, std, noise_scale, gen):
     if noise_scale <= 0:
         return None
@@ -195,6 +222,18 @@ def main():
         sd_big.update(p1["model"])
         del p1
         gc.collect()
+    # Contract-attention presence must be decided from the PARENT lineage,
+    # not from whichever keys happen to remain in the working dict. The old
+    # code checked for layers.0.contract_attn keys inside sd_small; in
+    # phase 2 that dict holds only parent layers 18-26, so the check was
+    # False and grown layers 27-35 were written with NO contract tensors
+    # (repaired 2026-10-22 per research/scale_plan_5b.md R-A).
+    parent_has_ca = (
+        any("contract_attn" in k for k in sd_small)
+        or any("contract_attn" in k for k in sd_big)
+        or bool(getattr(cfg_big, "contract_enabled", False)))
+    print(f"Parent contract attention: {parent_has_ca}")
+
     for i in range(layer_start, layer_end):
         p = f"layers.{i}."
         if i >= L_old:
@@ -209,16 +248,14 @@ def main():
             sd_big[p + "mlp.gate.weight"] = torch.zeros(f_new, d_new, dtype=dt)
             sd_big[p + "mlp.up.weight"] = torch.zeros(f_new, d_new, dtype=dt)
             sd_big[p + "mlp.down.weight"] = torch.zeros(d_new, f_new, dtype=dt)
-            # Contract attention (if present in parent)
-            if f"{p}contract_attn.q.weight" in sd_small or True:
-                # Check parent structure
-                has_ca = any(k.startswith(f"layers.0.contract_attn") for k in sd_small)
-                if has_ca:
-                    sd_big[p + "contract_norm.weight"] = torch.ones(d_new, dtype=dt)
-                    sd_big[p + "contract_attn.q.weight"] = torch.zeros(d_new, d_new, dtype=dt)
-                    sd_big[p + "contract_attn.kv.weight"] = torch.zeros(2*d_new, d_new, dtype=dt)
-                    sd_big[p + "contract_attn.out.weight"] = torch.zeros(d_new, d_new, dtype=dt)
-                    sd_big[p + "contract_attn.gate"] = torch.zeros(d_new, dtype=dt)
+            # Contract attention: exact-identity tensors on new layers
+            # whenever the parent lineage carries contract attention.
+            if parent_has_ca:
+                sd_big[p + "contract_norm.weight"] = torch.ones(d_new, dtype=dt)
+                sd_big[p + "contract_attn.q.weight"] = torch.zeros(d_new, d_new, dtype=dt)
+                sd_big[p + "contract_attn.kv.weight"] = torch.zeros(2*d_new, d_new, dtype=dt)
+                sd_big[p + "contract_attn.out.weight"] = torch.zeros(d_new, d_new, dtype=dt)
+                sd_big[p + "contract_attn.gate"] = torch.zeros(d_new, dtype=dt)
             n_new += 1  # placeholder
         else:
             # Grow from parent layer
@@ -264,13 +301,24 @@ def main():
             if ca_keys:
                 sd_big[p + "contract_norm.weight"] = _widen_norm(
                     sd_small.pop(p + "contract_norm.weight").float(), g).to(dt)
-                # Q, KV, out, gate
+                # Q, KV, out, gate. KV is [2d, d]: it must go through the
+                # split-half operator, never the generic row map (V-half
+                # truncation bug, repaired 2026-10-22).
                 for cn in ["q.weight", "kv.weight", "out.weight"]:
                     w = sd_small.pop(p + "contract_attn." + cn).float()
-                    w = _widen_rows(w, g, args.noise_scale, gen)
-                    w = _widen_cols(w, g, count, args.noise_scale, gen)
+                    if cn == "kv.weight":
+                        w = _widen_kv_streaming(w, g, count,
+                                                args.noise_scale, gen)
+                    else:
+                        w = _widen_rows(w, g, args.noise_scale, gen)
+                        w = _widen_cols(w, g, count, args.noise_scale, gen)
                     sd_big[p + "contract_attn." + cn] = w.to(dt)
                     del w
+                # Fail loud on any contract shape drift — silent
+                # truncation is how the defect shipped the first time.
+                assert sd_big[p + "contract_attn.q.weight"].shape == (d_new, d_new)
+                assert sd_big[p + "contract_attn.kv.weight"].shape == (2 * d_new, d_new)
+                assert sd_big[p + "contract_attn.out.weight"].shape == (d_new, d_new)
                 gate = torch.zeros(d_new, dtype=dt)
                 gate[:d_old] = sd_small.pop(p + "contract_attn.gate").to(dt)
                 sd_big[p + "contract_attn.gate"] = gate
@@ -303,6 +351,25 @@ def main():
 
         # Tie embeddings: lm_head shares storage with embed
         sd_big["lm_head.weight"] = sd_big["embed.weight"]
+
+    # Final contract-coverage gate (full builds only): if the parent
+    # lineage carries contract attention, EVERY layer of the grown model
+    # must carry it with exact shapes. Fail loud, never ship a silent
+    # truncation again (2026-10-22, scale_plan_5b.md R-A).
+    if args.phase != 1 and parent_has_ca:
+        for i in range(L_new):
+            p = f"layers.{i}."
+            for suffix, shape in (
+                    ("contract_norm.weight", (d_new,)),
+                    ("contract_attn.q.weight", (d_new, d_new)),
+                    ("contract_attn.kv.weight", (2 * d_new, d_new)),
+                    ("contract_attn.out.weight", (d_new, d_new)),
+                    ("contract_attn.gate", (d_new,))):
+                key = p + suffix
+                assert key in sd_big, f"missing contract tensor {key}"
+                assert tuple(sd_big[key].shape) == shape, \
+                    f"{key} shape {tuple(sd_big[key].shape)} != {shape}"
+        print(f"Contract coverage verified: {L_new}/{L_new} layers")
 
     total = sum(v.numel() for v in sd_big.values() if torch.is_tensor(v))
     # Subtract double-counted tied embeddings (if lm_head present)

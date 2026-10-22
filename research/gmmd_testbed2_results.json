@@ -1,0 +1,43 @@
+{
+  "base_rate": 0.72,
+  "arms": {
+    "rsft": {
+      "rate": 0.29,
+      "fails": 58,
+      "diversity": 0.7890625,
+      "heldout_ce": 3.8402059078216553
+    },
+    "mmd_marginal": {
+      "rate": 0.19,
+      "fails": 38,
+      "diversity": 0.78125,
+      "heldout_ce": 3.8967835903167725
+    },
+    "mmd_paired": {
+      "rate": 0.32,
+      "fails": 64,
+      "diversity": 0.78515625,
+      "heldout_ce": 3.7904434204101562
+    }
+  },
+  "verdicts": {
+    "mmd_marginal": {
+      "b01": 42,
+      "b10": 22,
+      "p": 0.01754895019147673,
+      "guardrails_ok": true,
+      "verdict": "PASS"
+    },
+    "mmd_paired": {
+      "b01": 27,
+      "b10": 33,
+      "p": 0.5186050164287257,
+      "guardrails_ok": true,
+      "verdict": "FAIL"
+    }
+  },
+  "testbed_stable": true,
+  "lambda": 1.0,
+  "post_steps": 150,
+  "seconds": 188.461656332016
+}

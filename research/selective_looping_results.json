@@ -1,0 +1,152 @@
+{
+  "baseline_final_val_nll": 5.256426095962524,
+  "arms": [
+    {
+      "arm": "base",
+      "wall_s": 19.2,
+      "curve": [
+        {
+          "step": 1,
+          "ratio": 1.0,
+          "cum_passes": 4.0,
+          "val_nll": 5.442120552062988
+        },
+        {
+          "step": 50,
+          "ratio": 1.0,
+          "cum_passes": 200.0,
+          "val_nll": 4.519562304019928
+        },
+        {
+          "step": 100,
+          "ratio": 1.0,
+          "cum_passes": 400.0,
+          "val_nll": 4.522898852825165
+        },
+        {
+          "step": 150,
+          "ratio": 1.0,
+          "cum_passes": 600.0,
+          "val_nll": 4.593516945838928
+        },
+        {
+          "step": 200,
+          "ratio": 1.0,
+          "cum_passes": 800.0,
+          "val_nll": 4.68756502866745
+        },
+        {
+          "step": 250,
+          "ratio": 1.0,
+          "cum_passes": 1000.0,
+          "val_nll": 4.848536372184753
+        },
+        {
+          "step": 300,
+          "ratio": 1.0,
+          "cum_passes": 1200.0,
+          "val_nll": 5.256426095962524
+        }
+      ]
+    },
+    {
+      "arm": "fixed",
+      "wall_s": 27.4,
+      "curve": [
+        {
+          "step": 1,
+          "ratio": 1.5,
+          "cum_passes": 6.0,
+          "val_nll": 5.411576628684998
+        },
+        {
+          "step": 50,
+          "ratio": 1.5,
+          "cum_passes": 300.0,
+          "val_nll": 4.515319108963013
+        },
+        {
+          "step": 100,
+          "ratio": 1.5,
+          "cum_passes": 600.0,
+          "val_nll": 4.519501686096191
+        },
+        {
+          "step": 150,
+          "ratio": 1.5,
+          "cum_passes": 900.0,
+          "val_nll": 4.5560548305511475
+        },
+        {
+          "step": 200,
+          "ratio": 1.5,
+          "cum_passes": 1200.0,
+          "val_nll": 4.6526976227760315
+        },
+        {
+          "step": 250,
+          "ratio": 1.5,
+          "cum_passes": 1500.0,
+          "val_nll": 4.7962037324905396
+        },
+        {
+          "step": 300,
+          "ratio": 1.5,
+          "cum_passes": 1800.0,
+          "val_nll": 5.0833922028541565
+        }
+      ]
+    },
+    {
+      "arm": "sampled",
+      "wall_s": 29.1,
+      "curve": [
+        {
+          "step": 1,
+          "ratio": 2.0,
+          "cum_passes": 6.0,
+          "val_nll": 5.392119646072388
+        },
+        {
+          "step": 50,
+          "ratio": 2.0,
+          "cum_passes": 300.0,
+          "val_nll": 4.551565527915955
+        },
+        {
+          "step": 100,
+          "ratio": 1.0,
+          "cum_passes": 600.0,
+          "val_nll": 4.53458172082901
+        },
+        {
+          "step": 150,
+          "ratio": 1.0,
+          "cum_passes": 900.0,
+          "val_nll": 4.545953094959259
+        },
+        {
+          "step": 200,
+          "ratio": 2.0,
+          "cum_passes": 1200.0,
+          "val_nll": 4.515119910240173
+        },
+        {
+          "step": 250,
+          "ratio": 2.0,
+          "cum_passes": 1500.0,
+          "val_nll": 4.609764814376831
+        },
+        {
+          "step": 300,
+          "ratio": 2.0,
+          "cum_passes": 1800.0,
+          "val_nll": 4.672076404094696
+        }
+      ]
+    }
+  ],
+  "steps": 300,
+  "batch": 32,
+  "note": "FLOPs = analytic layer-pass counts, not wall-clock; toy corpus, tiny model \u2014 directional only."
+}

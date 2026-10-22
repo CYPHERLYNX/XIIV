@@ -38,7 +38,9 @@ Design notes (v2):
 """
 import torch
 
-from .diffusion import check_constraints
+from .diffusion import check_constraints, partial_certificate_check
+
+__all__ = ["Contract", "ContractError", "partial_certificate_check"]
 
 DEFAULT_LENGTH = 128
 
@@ -424,6 +426,15 @@ class Contract:
     def verify(ids, constraints, mask_id):
         """Machine-check the finished canvas. Returns the check dict."""
         return check_constraints(ids, constraints, mask_id)
+
+    @staticmethod
+    def partial_certificate_check(ids, constraints, mask_id, frozen=None):
+        """Sound check on a PARTIAL canvas (CGMS fourth gate): returns
+        (True, "certifiable") if the canvas can still complete to a
+        valid output, (False, reason) only when a violation is already
+        unavoidable. See diffusion.partial_certificate_check."""
+        return partial_certificate_check(ids, constraints, mask_id,
+                                         frozen=frozen)
 
     @staticmethod
     def holds(check):

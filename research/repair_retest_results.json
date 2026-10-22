@@ -1,0 +1,68 @@
+{
+  "part1_glod": {
+    "rates": {
+      "verifier": 0.025,
+      "load": 0.62,
+      "confidence": 0.045
+    },
+    "mcnemar": {
+      "b01": 0,
+      "b10": 115,
+      "p": 0.0
+    },
+    "mean_touched": {
+      "verifier": 1.305,
+      "load": 5.215,
+      "confidence": 6.745
+    },
+    "verdict": "FAIL"
+  },
+  "part2_csm_routing": {
+    "ledger": {
+      "A_mixed": {
+        "n": 50,
+        "fails": 37,
+        "rate": 0.7307692307692307
+      },
+      "B_forbid_fav": {
+        "n": 50,
+        "fails": 41,
+        "rate": 0.8076923076923077
+      },
+      "C_req_forbid": {
+        "n": 50,
+        "fails": 35,
+        "rate": 0.6923076923076923
+      },
+      "D_req_only": {
+        "n": 50,
+        "fails": 14,
+        "rate": 0.28846153846153844
+      }
+    },
+    "draft_failure_rate": 0.68,
+    "auroc_confidence": 0.47414981617647056,
+    "auroc_ledger": 0.6838235294117647,
+    "control_rate": 0.015,
+    "routed_rate": 0.015,
+    "mcnemar": {
+      "b01": 0,
+      "b10": 0,
+      "p": 1.0
+    },
+    "verdict": "CEILING"
+  },
+  "pilot_draft_rate": 0.8,
+  "seconds": 89.84380674362183,
+  "historical_reference_descriptive": {
+    "gate2_free_refine": {
+      "load": 0.72,
+      "confidence": 0.735,
+      "random": 0.73
+    },
+    "csm_phaseC_free_refine": {
+      "control": 0.695,
+      "routed": 0.69
+    }
+  }
+}

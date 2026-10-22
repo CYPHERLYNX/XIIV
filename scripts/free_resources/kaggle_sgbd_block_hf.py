@@ -5,9 +5,16 @@ The token is read ONLY from the HF_TOKEN env var (never logged, never written
 to disk except embedded in the PRIVATE kernel notebook). The kernel is PRIVATE
 (owner-only).
 
+PREFERRED (added 2026-10-22): --kaggle-secret mode. The kernel fetches the
+token at runtime from Kaggle Secrets (UserSecretsClient, secret name
+HF_TOKEN) — nothing is embedded and NO per-block re-paste is needed. One-time
+setup by the account owner: Kaggle -> Settings -> Secrets -> add HF_TOKEN
+(a read-only HF token for elova89/xiiv-sgbd-teacher-cache). Embedded-token
+mode remains as fallback.
+
 Usage:
-    HF_TOKEN=<token> python3 kaggle_sgbd_block_hf.py --block 3 --dry-run
-    HF_TOKEN=<token> python3 kaggle_sgbd_block_hf.py --block 3
+    python3 kaggle_sgbd_block_hf.py --block 5 --kaggle-secret [--dry-run]
+    HF_TOKEN=<token> python3 kaggle_sgbd_block_hf.py --block 3 [--dry-run]
 
 What the kernel does:
   1. pip install torch cu121 + safetensors + huggingface_hub + numpy
@@ -56,9 +63,24 @@ KERNEL_SCRIPT = textwrap.dedent('''\
     print(f"[code] wrote {len(_bundle)} files", flush=True)
     del _bundle
 
-    # ---- 2. data from HuggingFace (long-lived token, embedded at build) ----
+    # ---- 2. data from HuggingFace ----
+    # Token source order: (a) Kaggle Secrets (HF_TOKEN) — preferred, set once
+    # by the account owner, no per-block paste; (b) token embedded at build
+    # time from the HF_TOKEN env var (fallback; private kernel only).
     from huggingface_hub import snapshot_download
-    _tok = "{HF_TOKEN}"
+    _tok = ""
+    try:
+        from kaggle_secrets import UserSecretsClient
+        _tok = UserSecretsClient().get_secret("HF_TOKEN") or ""
+        if _tok:
+            print("[data] HF token via Kaggle Secrets", flush=True)
+    except Exception as _e:
+        print(f"[data] Kaggle Secrets unavailable ({type(_e).__name__})", flush=True)
+    if not _tok:
+        _tok = "{HF_TOKEN}"
+        if _tok:
+            print("[data] HF token via embedded fallback", flush=True)
+    assert _tok, "no HF token: add Kaggle secret HF_TOKEN or use embedded mode"
     _t0, _t1 = {t_start}, {t_end}
     _pats = [f"iter0/layer{_t0:02d}_c*.pt", f"iter0/layer{_t1-1:02d}_c*.pt",
              "ckpt_8218.pt"]
@@ -139,28 +161,39 @@ def main():
     ap.add_argument("--steps", type=int, default=1000)
     ap.add_argument("--batch-size", type=int, default=8)
     ap.add_argument("--resume-step", type=int, default=0)
+    ap.add_argument("--kaggle-secret", action="store_true",
+                    help="kernel fetches HF_TOKEN from Kaggle Secrets at "
+                         "runtime; no embedded token, no HF_TOKEN env needed")
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
     if not (0 <= args.block <= 7):
         sys.exit("block must be 0-7")
 
     hf_token = os.environ.get("HF_TOKEN")
-    if not hf_token:
-        sys.exit("HF_TOKEN env var not set")
-    if len(hf_token) < 20 or not hf_token.startswith("hf_"):
-        sys.exit("HF_TOKEN looks invalid")
+    if hf_token:
+        if len(hf_token) < 20 or not hf_token.startswith("hf_"):
+            sys.exit("HF_TOKEN looks invalid")
+    elif not args.kaggle_secret:
+        sys.exit("HF_TOKEN env var not set (or pass --kaggle-secret)")
 
     slug = f"x0d4n7/xiiv-sgbd-block{args.block}-hf"
     title = slug.split("/", 1)[1]
 
     nb_json = build_notebook(args.block, args.steps, args.batch_size,
-                             args.resume_step, hf_token)
+                             args.resume_step, hf_token or "")
     nb = json.loads(nb_json)
     assert nb["cells"][0]["cell_type"] == "code"
-    # sanity: token appears exactly once in the notebook source
     src = "".join(nb["cells"][0]["source"])
-    assert src.count(hf_token) == 1, "token must appear exactly once"
-    print(f"[build] notebook OK ({len(nb_json)//1024} KB, 1 code cell)")
+    if hf_token:
+        # sanity: an embedded token appears exactly once in the source
+        assert src.count(hf_token) == 1, "token must appear exactly once"
+    else:
+        # secret mode: no token material anywhere in the notebook
+        assert "hf_" not in src.replace('get_secret("HF_TOKEN")', ""), \
+            "secret mode must not embed token material"
+        assert 'get_secret("HF_TOKEN")' in src
+    print(f"[build] notebook OK ({len(nb_json)//1024} KB, 1 code cell, "
+          f"token={'embedded' if hf_token else 'kaggle-secret'})")
 
     tmpdir = tempfile.mkdtemp(prefix=f"xiiv_kaggle_b{args.block}_hf_")
     with open(os.path.join(tmpdir, "notebook.ipynb"), "w") as f:
@@ -182,14 +215,18 @@ def main():
         print("[dry-run] not pushing.")
         return
 
-    r = subprocess.run(["kaggle", "kernels", "push", "-p", tmpdir],
+    import shutil
+    kaggle_bin = shutil.which("kaggle") or os.path.expanduser("~/.local/bin/kaggle")
+    if not os.path.exists(kaggle_bin):
+        sys.exit("kaggle CLI not found (install: uv tool install kaggle)")
+    r = subprocess.run([kaggle_bin, "kernels", "push", "-p", tmpdir],
                        capture_output=True, text=True, timeout=300)
     # never print the token; show only the tail
-    out = r.stdout[-2000:].replace(hf_token, "[TOKEN]")
-    print(out)
+    def _redact(s):
+        return s.replace(hf_token, "[TOKEN]") if hf_token else s
+    print(_redact(r.stdout[-2000:]))
     if r.returncode != 0:
-        err = r.stderr[-2000:].replace(hf_token, "[TOKEN]")
-        print(err, file=sys.stderr)
+        print(_redact(r.stderr[-2000:]), file=sys.stderr)
         sys.exit(1)
 
 

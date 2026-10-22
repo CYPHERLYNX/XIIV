@@ -149,3 +149,35 @@ def test_vocab_map_embedding_init(grown_pair):
     CE_old = small.contract_encoder.tok_embed.weight.float()
     CE_new = big.contract_encoder.tok_embed.weight.float()
     assert torch.equal(CE_new[10], CE_old[10].to(CE_new.dtype))
+
+
+# --- Regression: streaming-growth KV truncation (repaired 2026-10-22) ---
+# grow_1b_streaming.py applied its d-length row map directly to the
+# contract-attention kv.weight [2d, d], silently dropping the V half and
+# shipping a 1B checkpoint whose kv was [1280, 1280] instead of
+# [2560, 1280] (research/scale_plan_5b.md §1). The split-half operator
+# must preserve BOTH halves, and must refuse non-[2d, d] input loudly.
+from grow_1b_streaming import _dim_map, _widen_kv_streaming
+
+
+def test_streaming_kv_widening_preserves_both_halves():
+    d_old, hd, d_new = 16, 4, 24
+    g, count = _dim_map(d_old, d_new, hd)
+    gen = torch.Generator().manual_seed(0)
+    k_half = torch.ones(d_old, d_old)
+    v_half = torch.full((d_old, d_old), 3.0)  # distinct V marker
+    w = torch.cat([k_half, v_half], dim=0)
+    out = _widen_kv_streaming(w, g, count, 0.0, gen)
+    assert out.shape == (2 * d_new, d_new)
+    # Column widening scales both halves by the same per-column counts,
+    # so the V/K ratio survives exactly: proof the bottom half came from
+    # the parent's V rows, not from re-replicated K rows.
+    assert torch.allclose(out[d_new:], 3.0 * out[:d_new])
+    assert (out[:d_new] > 0).all() and (out[d_new:] > out[:d_new]).all()
+
+
+def test_streaming_kv_widening_rejects_wrong_shape():
+    g, count = _dim_map(16, 24, 4)
+    gen = torch.Generator().manual_seed(0)
+    with pytest.raises(AssertionError):
+        _widen_kv_streaming(torch.ones(16, 16), g, count, 0.0, gen)

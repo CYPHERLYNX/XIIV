@@ -216,7 +216,9 @@ class XIIVModel(nn.Module):
                 image_embeds: torch.Tensor | None = None,
                 contract_ids: torch.Tensor | None = None,
                 soft_embeds: torch.Tensor | None = None,
-                soft_positions: torch.Tensor | None = None) -> torch.Tensor:
+                soft_positions: torch.Tensor | None = None,
+                loop_group: tuple | None = None,
+                loop_count: int = 0) -> torch.Tensor:
         """ids: (B, T) -> logits (B, T, V).
 
         image_embeds: optional (B, N, d) visual prefix from PatchEmbed
@@ -271,19 +273,45 @@ class XIIVModel(nn.Module):
             contract_embeds = self.contract_encoder(contract_ids)
         cos, sin = self._get_rope_cache(T, self.cfg.d_model // self.cfg.n_heads,
                                           ids.device, x.dtype)
+        # Selective looping (LoopMDM / Looped-Uniform-Diffusion lineage,
+        # arXiv:2605.26106 / 2610.30066): re-apply a contiguous group of
+        # layers — typically the early ones — `loop_count` extra times.
+        # Recurrent depth at fixed parameter count; callers may vary the
+        # count per call (the papers sample smaller counts more often in
+        # training). Default (None / 0) is the standard single pass,
+        # bit-identical to before.
+        passes = list(range(len(self.layers)))
+        if loop_group is not None and loop_count > 0:
+            lo, hi = int(loop_group[0]), int(loop_group[1])
+            if not (0 <= lo < hi <= len(self.layers)):
+                raise ValueError(
+                    f"loop_group {loop_group} invalid for "
+                    f"{len(self.layers)} layers")
+            passes = (passes[:hi] + list(range(lo, hi)) * int(loop_count)
+                      + passes[hi:])
         if self.grad_checkpoint and x.requires_grad:
             from torch.utils.checkpoint import checkpoint
-            for layer in self.layers:
-                x = checkpoint(layer, x, cos, sin, contract_embeds,
+            for i in passes:
+                x = checkpoint(self.layers[i], x, cos, sin, contract_embeds,
                                use_reentrant=False)
         else:
-            for layer in self.layers:
-                x = layer(x, cos, sin, contract_embeds)
+            for i in passes:
+                x = self.layers[i](x, cos, sin, contract_embeds)
         x = self.final_norm(x)
         return self.lm_head(x)
 
     def count_parameters(self) -> int:
         return sum(p.numel() for p in self.parameters())
+
+    @staticmethod
+    def selective_loop_flop_ratio(n_layers: int, loop_group,
+                                  loop_count: int) -> float:
+        """Relative per-forward layer-pass cost of selective looping
+        (uniform layer cost assumed): 1.0 = no looping."""
+        if loop_group is None or loop_count <= 0:
+            return 1.0
+        lo, hi = int(loop_group[0]), int(loop_group[1])
+        return (n_layers + (hi - lo) * int(loop_count)) / n_layers
 
     def init_weights(self, std: float = 0.02):
         for m in self.modules():

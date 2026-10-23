@@ -347,3 +347,169 @@ def verify_certificate(cert):
         return verify_trace(cert["steps"], x0, ("var",), result)
     except Exception as ex:  # a malformed certificate fails closed
         return False, {"error": f"verifier exception: {type(ex).__name__}: {ex}"}
+
+
+# ---------------------------------------------------------------------------
+# Interval-trace verifier (spec 5.6, task 3: noisy inputs).
+#
+# Structurally independent from the prover (noise.py): re-derives every
+# interval step from its OWN interval rule table, never trusts recorded
+# outputs, re-derives joins, and re-decides every branch from the guard
+# interval. Linear in |trace|.
+# ---------------------------------------------------------------------------
+
+def _iverify_flat_step(s, i, prev_out):
+    """Verify one interval primitive step. Returns (ok, info, out_iv)."""
+    from intervals import INTERVAL_RULES, iv_from_json, iv_to_json
+    op = s.get("op")
+    if op not in INTERVAL_RULES:
+        return False, {"error": f"unknown op {op} at interval step {i}"}, None
+    try:
+        in_iv = iv_from_json(s["in"])
+        out_iv = iv_from_json(s["out"])
+    except Exception as ex:
+        return False, {"error": f"interval step {i}: malformed: {ex}"}, None
+    derived = INTERVAL_RULES[op](in_iv)
+    if derived != out_iv:
+        return False, {"error": f"interval step {i} ({op}): re-derivation "
+                                f"mismatch: derived {derived} != claimed {out_iv}"}, None
+    if prev_out is not None and in_iv != prev_out:
+        return False, {"error": f"interval step {i}: input != previous output"}, None
+    return True, {}, out_iv
+
+
+def _iverify_branch_node(s, i, prev_out):
+    """
+    Verify one noisy IFZ branch node (decisive or straddle-join).
+    Decisive node checks:
+      I1. chaining: in == prev_out
+      I2. guard sub-trace valid; claimed cond_interval matches re-derivation
+      I3. taken matches guard_decision(cond_interval) (re-decided, not trusted)
+      I4. branch sub-trace valid from the pre-guard interval, ending at out
+    Straddle join node checks:
+      J1. chaining: in == prev_out
+      J2. guard sub-trace valid; cond_interval matches re-derivation
+      J3. straddle evidence real: guard_decision(cond_interval) == "straddle"
+      J4. BOTH branch sub-traces valid from the pre-guard interval
+      J5. out == join(then_out, else_out), re-derived (not trusted)
+    Returns (ok, info, out_iv).
+    """
+    from intervals import (iv_from_json, guard_decision, join as iv_join)
+    try:
+        in_iv = iv_from_json(s["in"])
+        out_iv = iv_from_json(s["out"])
+        cond_iv = iv_from_json(s["cond_interval"])
+        straddle = bool(s.get("straddle"))
+    except Exception as ex:
+        return False, {"error": f"interval branch {i}: malformed node: {ex}"}, None
+    # I1/J1. chaining
+    if prev_out is not None and in_iv != prev_out:
+        return False, {"error": f"interval branch {i}: input != previous output"}, None
+    # I2/J2. guard sub-trace
+    ok, info = verify_interval_trace(s["cond_steps"], in_iv, None)
+    if not ok:
+        return False, {"error": f"interval branch {i}: guard sub-trace invalid",
+                       "detail": info}, None
+    if info["final_interval_tuple"] != cond_iv:
+        return False, {"error": f"interval branch {i}: cond_interval != "
+                                f"re-derived guard output"}, None
+    # I3/J3. re-decide from the guard interval
+    re_decision = guard_decision(cond_iv)
+    if straddle:
+        if re_decision != "straddle":
+            return False, {"error": f"interval branch {i}: claimed straddle "
+                                    f"but guard interval {cond_iv} re-decides "
+                                    f"as {re_decision!r}"}, None
+        # J4. both branch sub-traces from the pre-guard interval
+        ok_t, info_t = verify_interval_trace(s["then_steps"], in_iv, None)
+        if not ok_t:
+            return False, {"error": f"interval branch {i}: then-branch "
+                                    f"sub-trace invalid", "detail": info_t}, None
+        ok_e, info_e = verify_interval_trace(s["else_steps"], in_iv, None)
+        if not ok_e:
+            return False, {"error": f"interval branch {i}: else-branch "
+                                    f"sub-trace invalid", "detail": info_e}, None
+        # J5. join re-derived
+        derived_join = iv_join(info_t["final_interval_tuple"],
+                               info_e["final_interval_tuple"])
+        if derived_join != out_iv:
+            return False, {"error": f"interval branch {i}: join mismatch: "
+                                    f"re-derived {derived_join} != claimed {out_iv}"}, None
+        return True, {"branch": i, "straddle": True}, out_iv
+    # decisive branch
+    if re_decision != s.get("taken"):
+        return False, {"error": f"interval branch {i}: taken={s.get('taken')!r} "
+                                f"inconsistent with re-decided {re_decision!r} "
+                                f"from guard interval {cond_iv}"}, None
+    ok, info = verify_interval_trace(s["steps"], in_iv, None)
+    if not ok:
+        return False, {"error": f"interval branch {i}: branch sub-trace "
+                                f"invalid", "detail": info}, None
+    if info["final_interval_tuple"] != out_iv:
+        return False, {"error": f"interval branch {i}: branch output != "
+                                f"claimed out"}, None
+    return True, {"branch": i, "taken": re_decision}, out_iv
+
+
+def verify_interval_trace(steps, i0, nominal_result):
+    """
+    Mechanically check a noisy-input interval certificate trace.
+    Returns (ok: bool, info: dict).
+
+    Checks (each linear in |trace|):
+      1. steps[0].in == i0            (initial interval as claimed)
+      2. INTERVAL_RULES[op](in) == out (each step re-derived, not trusted)
+      3. out_k == in_{k+1}            (trace chaining, incl. branch nodes)
+      4. nominal_result in final interval (skipped when None)
+      5. branch nodes: I1-I4 (decisive) / J1-J5 (straddle join)
+    info carries final_interval, final_interval_tuple, final_width, counts.
+    """
+    from intervals import iv_from_json, iv_to_json, width, contains
+    try:
+        if not steps:
+            return False, {"error": "empty interval trace"}
+        first_in = iv_from_json(steps[0]["in"])
+        if first_in != tuple(i0):
+            return False, {"error": f"interval trace does not start at "
+                                    f"claimed input: {first_in} != {tuple(i0)}"}
+        prev_out = None
+        n_flat = n_branch = n_straddle = 0
+        for i, s in enumerate(steps):
+            if s.get("branch"):
+                ok, info, out_iv = _iverify_branch_node(s, i, prev_out)
+                n_branch += 1
+                if s.get("straddle"):
+                    n_straddle += 1
+            else:
+                ok, info, out_iv = _iverify_flat_step(s, i, prev_out)
+                n_flat += 1
+            if not ok:
+                info["step_index"] = i
+                return False, info
+            prev_out = out_iv
+        if nominal_result is not None and not contains(prev_out, nominal_result):
+            return False, {"error": "nominal result not in final interval",
+                           "nominal": int(nominal_result),
+                           "final": iv_to_json(prev_out)}
+        return True, {"steps": len(steps), "flat_steps": n_flat,
+                      "branch_nodes": n_branch, "straddle_joins": n_straddle,
+                      "final_interval": iv_to_json(prev_out),
+                      "final_interval_tuple": prev_out,
+                      "final_width": width(prev_out)}
+    except Exception as ex:  # a malformed certificate fails closed
+        return False, {"error": f"interval verifier exception: "
+                                f"{type(ex).__name__}: {ex}"}
+
+
+def verify_noise_certificate(cert):
+    """
+    Mechanically check a noisy-input certificate from NoiseProofMachine.
+    The initial interval is [x0 - r, x0 + r]; the nominal result must lie in
+    the final interval.
+    """
+    try:
+        x0, r = int(cert["x0"]), int(cert["r"])
+        result = int(cert["result"])
+        return verify_interval_trace(cert["steps"], (x0 - r, x0 + r), result)
+    except Exception as ex:  # a malformed certificate fails closed
+        return False, {"error": f"verifier exception: {type(ex).__name__}: {ex}"}

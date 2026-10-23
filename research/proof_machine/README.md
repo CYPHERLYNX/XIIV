@@ -170,9 +170,13 @@ constructive planner when the primitive library grows beyond the 8-op closure.
   (narrow but real conditionals). Per-step primitive exactness was already
   100% in Phase-1, so this sweep isolates the claim that *branching does not
   break compositional scaling*.
-- **Next:** §5.6 task 3 (noisy inputs → interval abstractions; makes the
-  tightness loss a real signal), §5.6 task 1 (logic chains), conditional
-  transformer baseline (separation leg).
+- **Next (updated 2026-10-23):** §5.6 task 3 DONE — see `noise_results.md`
+  (validity gate PASS at all depths × radii; MOD-wrap hull falsified the
+  flat-exactness claim; join over-approx compounds; guard decisiveness
+  evaporates under noise for MOD guards; L_tight now a real per-op signal).
+  Conditional transformer baseline (separation leg for the conditional kill
+  gate) still queued. Today's Part-A pick queued as an invention candidate:
+  **CGAU** (Certificate-Gated Adaptive Unmasking), `research/daily_2026-10-23.md`.
 
 ## Relation to the main research line
 

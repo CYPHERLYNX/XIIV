@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/banner.png" alt="XIIV" width="100%"/>
+</p>
+
 # XIIV
 
 A language model I'm building from scratch using masked diffusion
@@ -8,6 +12,10 @@ a separate verifier before you accept it, instead of hoping the
 model followed the instruction.
 
 It's a personal research project. It's not finished.
+
+<p align="center">
+  <img src="assets/how-it-works.png" alt="How XIIV generates — a masked canvas is filled in in parallel and checked against its contracts" width="100%"/>
+</p>
 
 ## Status (Oct 2026)
 

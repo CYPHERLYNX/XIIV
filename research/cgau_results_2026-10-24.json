@@ -1,0 +1,5077 @@
+{
+ "date": "2026-10-24",
+ "n_instances": 60,
+ "suite_seed": 20261024,
+ "vocab": 32,
+ "mask_id": 32,
+ "length": 24,
+ "config": {
+  "topk": 4,
+  "budget": 2,
+  "max_steps": 64,
+  "tau_margin": 0.35,
+  "stall_budget": 3,
+  "taboo_cooldown": 4
+ },
+ "summary": {
+  "vanilla": {
+   "final_valid_rate": 0.05,
+   "completed_rate": 1.0,
+   "mean_forward_passes": 12.0,
+   "mean_steps": 12.0,
+   "cert_failure_rate": 0.0,
+   "total_rollbacks": 0,
+   "total_remasks": 0,
+   "total_early_exits": 0
+  },
+  "gated": {
+   "final_valid_rate": 1.0,
+   "completed_rate": 1.0,
+   "mean_forward_passes": 12.416666666666666,
+   "mean_steps": 12.416666666666666,
+   "cert_failure_rate": 0.18874360432063672,
+   "total_rollbacks": 0,
+   "total_remasks": 0,
+   "total_early_exits": 0
+  },
+  "cgau": {
+   "final_valid_rate": 1.0,
+   "completed_rate": 1.0,
+   "mean_forward_passes": 10.433333333333334,
+   "mean_steps": 10.433333333333334,
+   "cert_failure_rate": 0.20146764509673115,
+   "total_rollbacks": 0,
+   "total_remasks": 0,
+   "total_early_exits": 230
+  }
+ },
+ "pre_registered_checks": {
+  "P1_validity_ladder": true,
+  "P2_gate_fires": true,
+  "P3_cgau_compute_le_gated": true,
+  "P4_mechanisms_fire": true,
+  "KILL_cgau_le_vanilla_validity": false
+ },
+ "per_instance": [
+  {
+   "instance": 0,
+   "contract": {
+    "anchors": {},
+    "forbidden_ids": [
+     22,
+     10
+    ],
+    "required_ids": [
+     15,
+     2
+    ],
+    "required_counts": {
+     "15": 3,
+     "2": 2,
+     "1": 1,
+     "14": 1
+    },
+    "at_most": {
+     "21": 1
+    },
+    "forbidden_phrases": [],
+    "order_pairs": [
+     [
+      [
+       1
+      ],
+      [
+       14
+      ]
+     ]
+    ]
+   },
+   "vanilla": {
+    "policy": "vanilla",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 0,
+    "gate_rejects": 0,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": false,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.0,
+    "n_events": 1
+   },
+   "gated": {
+    "policy": "gated",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 29,
+    "gate_rejects": 5,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.1724137931034483,
+    "n_events": 25
+   },
+   "cgau": {
+    "policy": "cgau",
+    "steps": 11,
+    "forward_passes": 11,
+    "proposals": 30,
+    "gate_rejects": 9,
+    "commits": 24,
+    "early_exits": 3,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 1,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.3,
+    "n_events": 25
+   }
+  },
+  {
+   "instance": 1,
+   "contract": {
+    "anchors": {
+     "21": 10
+    },
+    "forbidden_ids": [
+     3,
+     11
+    ],
+    "required_ids": [
+     2,
+     28
+    ],
+    "required_counts": {
+     "2": 3,
+     "28": 2,
+     "5": 1,
+     "20": 1
+    },
+    "at_most": {
+     "16": 1
+    },
+    "forbidden_phrases": [],
+    "order_pairs": [
+     [
+      [
+       5
+      ],
+      [
+       20
+      ]
+     ]
+    ]
+   },
+   "vanilla": {
+    "policy": "vanilla",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 0,
+    "gate_rejects": 0,
+    "commits": 23,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": false,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.0,
+    "n_events": 1
+   },
+   "gated": {
+    "policy": "gated",
+    "steps": 16,
+    "forward_passes": 16,
+    "proposals": 63,
+    "gate_rejects": 40,
+    "commits": 23,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.6349206349206349,
+    "n_events": 24
+   },
+   "cgau": {
+    "policy": "cgau",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 39,
+    "gate_rejects": 20,
+    "commits": 23,
+    "early_exits": 4,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 9,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.5128205128205128,
+    "n_events": 24
+   }
+  },
+  {
+   "instance": 2,
+   "contract": {
+    "anchors": {},
+    "forbidden_ids": [
+     8,
+     26
+    ],
+    "required_ids": [
+     30,
+     20
+    ],
+    "required_counts": {
+     "30": 3,
+     "20": 3
+    },
+    "at_most": {
+     "18": 1
+    },
+    "forbidden_phrases": [],
+    "order_pairs": []
+   },
+   "vanilla": {
+    "policy": "vanilla",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 0,
+    "gate_rejects": 0,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": false,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.0,
+    "n_events": 1
+   },
+   "gated": {
+    "policy": "gated",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 25,
+    "gate_rejects": 1,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.04,
+    "n_events": 25
+   },
+   "cgau": {
+    "policy": "cgau",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 28,
+    "gate_rejects": 5,
+    "commits": 24,
+    "early_exits": 1,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 1,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.17857142857142858,
+    "n_events": 25
+   }
+  },
+  {
+   "instance": 3,
+   "contract": {
+    "anchors": {},
+    "forbidden_ids": [
+     12,
+     23
+    ],
+    "required_ids": [
+     3,
+     17
+    ],
+    "required_counts": {
+     "3": 3,
+     "17": 3,
+     "25": 1,
+     "2": 1
+    },
+    "at_most": {
+     "8": 1
+    },
+    "forbidden_phrases": [],
+    "order_pairs": [
+     [
+      [
+       25
+      ],
+      [
+       2
+      ]
+     ]
+    ]
+   },
+   "vanilla": {
+    "policy": "vanilla",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 0,
+    "gate_rejects": 0,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": false,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.0,
+    "n_events": 1
+   },
+   "gated": {
+    "policy": "gated",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 27,
+    "gate_rejects": 3,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.1111111111111111,
+    "n_events": 25
+   },
+   "cgau": {
+    "policy": "cgau",
+    "steps": 9,
+    "forward_passes": 9,
+    "proposals": 21,
+    "gate_rejects": 3,
+    "commits": 24,
+    "early_exits": 6,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.14285714285714285,
+    "n_events": 25
+   }
+  },
+  {
+   "instance": 4,
+   "contract": {
+    "anchors": {},
+    "forbidden_ids": [
+     26,
+     18
+    ],
+    "required_ids": [
+     10,
+     25
+    ],
+    "required_counts": {
+     "10": 3,
+     "25": 3,
+     "11": 1,
+     "30": 1
+    },
+    "at_most": {
+     "31": 1
+    },
+    "forbidden_phrases": [],
+    "order_pairs": [
+     [
+      [
+       11
+      ],
+      [
+       30
+      ]
+     ]
+    ]
+   },
+   "vanilla": {
+    "policy": "vanilla",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 0,
+    "gate_rejects": 0,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": false,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.0,
+    "n_events": 1
+   },
+   "gated": {
+    "policy": "gated",
+    "steps": 13,
+    "forward_passes": 13,
+    "proposals": 28,
+    "gate_rejects": 4,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.14285714285714285,
+    "n_events": 25
+   },
+   "cgau": {
+    "policy": "cgau",
+    "steps": 9,
+    "forward_passes": 9,
+    "proposals": 18,
+    "gate_rejects": 1,
+    "commits": 24,
+    "early_exits": 7,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.05555555555555555,
+    "n_events": 25
+   }
+  },
+  {
+   "instance": 5,
+   "contract": {
+    "anchors": {},
+    "forbidden_ids": [
+     24,
+     5
+    ],
+    "required_ids": [
+     4,
+     15
+    ],
+    "required_counts": {
+     "4": 3,
+     "15": 2,
+     "21": 1,
+     "2": 1
+    },
+    "at_most": {
+     "8": 1
+    },
+    "forbidden_phrases": [],
+    "order_pairs": [
+     [
+      [
+       21
+      ],
+      [
+       2
+      ]
+     ]
+    ]
+   },
+   "vanilla": {
+    "policy": "vanilla",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 0,
+    "gate_rejects": 0,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": false,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.0,
+    "n_events": 1
+   },
+   "gated": {
+    "policy": "gated",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 27,
+    "gate_rejects": 3,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.1111111111111111,
+    "n_events": 25
+   },
+   "cgau": {
+    "policy": "cgau",
+    "steps": 11,
+    "forward_passes": 11,
+    "proposals": 25,
+    "gate_rejects": 3,
+    "commits": 24,
+    "early_exits": 2,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.12,
+    "n_events": 25
+   }
+  },
+  {
+   "instance": 6,
+   "contract": {
+    "anchors": {},
+    "forbidden_ids": [
+     5,
+     13
+    ],
+    "required_ids": [
+     2,
+     15
+    ],
+    "required_counts": {
+     "2": 2,
+     "15": 2,
+     "22": 1,
+     "27": 1
+    },
+    "at_most": {
+     "12": 1
+    },
+    "forbidden_phrases": [],
+    "order_pairs": [
+     [
+      [
+       22
+      ],
+      [
+       27
+      ]
+     ]
+    ]
+   },
+   "vanilla": {
+    "policy": "vanilla",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 0,
+    "gate_rejects": 0,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": false,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.0,
+    "n_events": 1
+   },
+   "gated": {
+    "policy": "gated",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 26,
+    "gate_rejects": 2,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.07692307692307693,
+    "n_events": 25
+   },
+   "cgau": {
+    "policy": "cgau",
+    "steps": 11,
+    "forward_passes": 11,
+    "proposals": 24,
+    "gate_rejects": 2,
+    "commits": 24,
+    "early_exits": 2,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.08333333333333333,
+    "n_events": 25
+   }
+  },
+  {
+   "instance": 7,
+   "contract": {
+    "anchors": {},
+    "forbidden_ids": [
+     23,
+     11
+    ],
+    "required_ids": [
+     18,
+     8
+    ],
+    "required_counts": {
+     "18": 2,
+     "8": 3,
+     "26": 1,
+     "19": 1
+    },
+    "at_most": {
+     "15": 1
+    },
+    "forbidden_phrases": [],
+    "order_pairs": [
+     [
+      [
+       26
+      ],
+      [
+       19
+      ]
+     ]
+    ]
+   },
+   "vanilla": {
+    "policy": "vanilla",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 0,
+    "gate_rejects": 0,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": false,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.0,
+    "n_events": 1
+   },
+   "gated": {
+    "policy": "gated",
+    "steps": 13,
+    "forward_passes": 13,
+    "proposals": 33,
+    "gate_rejects": 9,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.2727272727272727,
+    "n_events": 25
+   },
+   "cgau": {
+    "policy": "cgau",
+    "steps": 10,
+    "forward_passes": 10,
+    "proposals": 24,
+    "gate_rejects": 5,
+    "commits": 24,
+    "early_exits": 5,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.20833333333333334,
+    "n_events": 25
+   }
+  },
+  {
+   "instance": 8,
+   "contract": {
+    "anchors": {},
+    "forbidden_ids": [
+     2,
+     21
+    ],
+    "required_ids": [
+     14,
+     16
+    ],
+    "required_counts": {
+     "14": 2,
+     "16": 2,
+     "25": 1,
+     "5": 1
+    },
+    "at_most": {
+     "23": 1
+    },
+    "forbidden_phrases": [],
+    "order_pairs": [
+     [
+      [
+       25
+      ],
+      [
+       5
+      ]
+     ]
+    ]
+   },
+   "vanilla": {
+    "policy": "vanilla",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 0,
+    "gate_rejects": 0,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": false,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.0,
+    "n_events": 1
+   },
+   "gated": {
+    "policy": "gated",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 26,
+    "gate_rejects": 2,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.07692307692307693,
+    "n_events": 25
+   },
+   "cgau": {
+    "policy": "cgau",
+    "steps": 10,
+    "forward_passes": 10,
+    "proposals": 22,
+    "gate_rejects": 2,
+    "commits": 24,
+    "early_exits": 4,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.09090909090909091,
+    "n_events": 25
+   }
+  },
+  {
+   "instance": 9,
+   "contract": {
+    "anchors": {
+     "13": 31
+    },
+    "forbidden_ids": [
+     17,
+     3
+    ],
+    "required_ids": [
+     2,
+     30
+    ],
+    "required_counts": {
+     "2": 3,
+     "30": 3,
+     "10": 1,
+     "8": 1
+    },
+    "at_most": {
+     "19": 1
+    },
+    "forbidden_phrases": [],
+    "order_pairs": [
+     [
+      [
+       10
+      ],
+      [
+       8
+      ]
+     ]
+    ]
+   },
+   "vanilla": {
+    "policy": "vanilla",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 0,
+    "gate_rejects": 0,
+    "commits": 23,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": false,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.0,
+    "n_events": 1
+   },
+   "gated": {
+    "policy": "gated",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 24,
+    "gate_rejects": 1,
+    "commits": 23,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.041666666666666664,
+    "n_events": 24
+   },
+   "cgau": {
+    "policy": "cgau",
+    "steps": 9,
+    "forward_passes": 9,
+    "proposals": 18,
+    "gate_rejects": 0,
+    "commits": 23,
+    "early_exits": 5,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.0,
+    "n_events": 24
+   }
+  },
+  {
+   "instance": 10,
+   "contract": {
+    "anchors": {},
+    "forbidden_ids": [
+     17,
+     26
+    ],
+    "required_ids": [
+     19,
+     1
+    ],
+    "required_counts": {
+     "19": 2,
+     "1": 3,
+     "14": 1,
+     "9": 1
+    },
+    "at_most": {
+     "5": 1
+    },
+    "forbidden_phrases": [],
+    "order_pairs": [
+     [
+      [
+       14
+      ],
+      [
+       9
+      ]
+     ]
+    ]
+   },
+   "vanilla": {
+    "policy": "vanilla",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 0,
+    "gate_rejects": 0,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": false,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.0,
+    "n_events": 1
+   },
+   "gated": {
+    "policy": "gated",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 26,
+    "gate_rejects": 2,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.07692307692307693,
+    "n_events": 25
+   },
+   "cgau": {
+    "policy": "cgau",
+    "steps": 10,
+    "forward_passes": 10,
+    "proposals": 22,
+    "gate_rejects": 2,
+    "commits": 24,
+    "early_exits": 4,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.09090909090909091,
+    "n_events": 25
+   }
+  },
+  {
+   "instance": 11,
+   "contract": {
+    "anchors": {},
+    "forbidden_ids": [
+     27,
+     7
+    ],
+    "required_ids": [
+     20,
+     30
+    ],
+    "required_counts": {
+     "20": 2,
+     "30": 2,
+     "19": 1,
+     "31": 1
+    },
+    "at_most": {
+     "23": 1
+    },
+    "forbidden_phrases": [],
+    "order_pairs": [
+     [
+      [
+       19
+      ],
+      [
+       31
+      ]
+     ]
+    ]
+   },
+   "vanilla": {
+    "policy": "vanilla",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 0,
+    "gate_rejects": 0,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": false,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.0,
+    "n_events": 1
+   },
+   "gated": {
+    "policy": "gated",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 26,
+    "gate_rejects": 2,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.07692307692307693,
+    "n_events": 25
+   },
+   "cgau": {
+    "policy": "cgau",
+    "steps": 8,
+    "forward_passes": 8,
+    "proposals": 17,
+    "gate_rejects": 2,
+    "commits": 24,
+    "early_exits": 9,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.11764705882352941,
+    "n_events": 25
+   }
+  },
+  {
+   "instance": 12,
+   "contract": {
+    "anchors": {},
+    "forbidden_ids": [
+     10,
+     3
+    ],
+    "required_ids": [
+     25,
+     27
+    ],
+    "required_counts": {
+     "25": 2,
+     "27": 3
+    },
+    "at_most": {
+     "13": 1
+    },
+    "forbidden_phrases": [],
+    "order_pairs": []
+   },
+   "vanilla": {
+    "policy": "vanilla",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 0,
+    "gate_rejects": 0,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": false,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.0,
+    "n_events": 1
+   },
+   "gated": {
+    "policy": "gated",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 30,
+    "gate_rejects": 6,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.2,
+    "n_events": 25
+   },
+   "cgau": {
+    "policy": "cgau",
+    "steps": 10,
+    "forward_passes": 10,
+    "proposals": 26,
+    "gate_rejects": 6,
+    "commits": 24,
+    "early_exits": 4,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.23076923076923078,
+    "n_events": 25
+   }
+  },
+  {
+   "instance": 13,
+   "contract": {
+    "anchors": {
+     "20": 23
+    },
+    "forbidden_ids": [
+     26,
+     30
+    ],
+    "required_ids": [
+     13,
+     0
+    ],
+    "required_counts": {
+     "13": 2,
+     "0": 3,
+     "14": 1,
+     "29": 1
+    },
+    "at_most": {
+     "19": 1
+    },
+    "forbidden_phrases": [],
+    "order_pairs": [
+     [
+      [
+       14
+      ],
+      [
+       29
+      ]
+     ]
+    ]
+   },
+   "vanilla": {
+    "policy": "vanilla",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 0,
+    "gate_rejects": 0,
+    "commits": 23,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": false,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.0,
+    "n_events": 1
+   },
+   "gated": {
+    "policy": "gated",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 29,
+    "gate_rejects": 6,
+    "commits": 23,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.20689655172413793,
+    "n_events": 24
+   },
+   "cgau": {
+    "policy": "cgau",
+    "steps": 11,
+    "forward_passes": 11,
+    "proposals": 27,
+    "gate_rejects": 6,
+    "commits": 23,
+    "early_exits": 2,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 1,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.2222222222222222,
+    "n_events": 24
+   }
+  },
+  {
+   "instance": 14,
+   "contract": {
+    "anchors": {},
+    "forbidden_ids": [
+     31,
+     13
+    ],
+    "required_ids": [
+     10,
+     6
+    ],
+    "required_counts": {
+     "10": 2,
+     "6": 2,
+     "26": 1,
+     "2": 1
+    },
+    "at_most": {
+     "1": 1
+    },
+    "forbidden_phrases": [],
+    "order_pairs": [
+     [
+      [
+       26
+      ],
+      [
+       2
+      ]
+     ]
+    ]
+   },
+   "vanilla": {
+    "policy": "vanilla",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 0,
+    "gate_rejects": 0,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": false,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.0,
+    "n_events": 1
+   },
+   "gated": {
+    "policy": "gated",
+    "steps": 13,
+    "forward_passes": 13,
+    "proposals": 34,
+    "gate_rejects": 10,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.29411764705882354,
+    "n_events": 25
+   },
+   "cgau": {
+    "policy": "cgau",
+    "steps": 10,
+    "forward_passes": 10,
+    "proposals": 25,
+    "gate_rejects": 6,
+    "commits": 24,
+    "early_exits": 5,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.24,
+    "n_events": 25
+   }
+  },
+  {
+   "instance": 15,
+   "contract": {
+    "anchors": {},
+    "forbidden_ids": [
+     14,
+     29
+    ],
+    "required_ids": [
+     31,
+     19
+    ],
+    "required_counts": {
+     "31": 3,
+     "19": 3
+    },
+    "at_most": {
+     "15": 1
+    },
+    "forbidden_phrases": [],
+    "order_pairs": []
+   },
+   "vanilla": {
+    "policy": "vanilla",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 0,
+    "gate_rejects": 0,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": false,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.0,
+    "n_events": 1
+   },
+   "gated": {
+    "policy": "gated",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 26,
+    "gate_rejects": 2,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.07692307692307693,
+    "n_events": 25
+   },
+   "cgau": {
+    "policy": "cgau",
+    "steps": 9,
+    "forward_passes": 9,
+    "proposals": 20,
+    "gate_rejects": 2,
+    "commits": 24,
+    "early_exits": 6,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.1,
+    "n_events": 25
+   }
+  },
+  {
+   "instance": 16,
+   "contract": {
+    "anchors": {},
+    "forbidden_ids": [
+     14,
+     16
+    ],
+    "required_ids": [
+     20,
+     1
+    ],
+    "required_counts": {
+     "20": 2,
+     "1": 3
+    },
+    "at_most": {
+     "24": 1
+    },
+    "forbidden_phrases": [],
+    "order_pairs": []
+   },
+   "vanilla": {
+    "policy": "vanilla",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 0,
+    "gate_rejects": 0,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": false,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.0,
+    "n_events": 1
+   },
+   "gated": {
+    "policy": "gated",
+    "steps": 13,
+    "forward_passes": 13,
+    "proposals": 31,
+    "gate_rejects": 7,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.22580645161290322,
+    "n_events": 25
+   },
+   "cgau": {
+    "policy": "cgau",
+    "steps": 10,
+    "forward_passes": 10,
+    "proposals": 22,
+    "gate_rejects": 3,
+    "commits": 24,
+    "early_exits": 5,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.13636363636363635,
+    "n_events": 25
+   }
+  },
+  {
+   "instance": 17,
+   "contract": {
+    "anchors": {},
+    "forbidden_ids": [
+     6,
+     19
+    ],
+    "required_ids": [
+     18,
+     21
+    ],
+    "required_counts": {
+     "18": 2,
+     "21": 3
+    },
+    "at_most": {
+     "31": 1
+    },
+    "forbidden_phrases": [],
+    "order_pairs": []
+   },
+   "vanilla": {
+    "policy": "vanilla",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 0,
+    "gate_rejects": 0,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": false,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.0,
+    "n_events": 1
+   },
+   "gated": {
+    "policy": "gated",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 26,
+    "gate_rejects": 2,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.07692307692307693,
+    "n_events": 25
+   },
+   "cgau": {
+    "policy": "cgau",
+    "steps": 10,
+    "forward_passes": 10,
+    "proposals": 22,
+    "gate_rejects": 2,
+    "commits": 24,
+    "early_exits": 4,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.09090909090909091,
+    "n_events": 25
+   }
+  },
+  {
+   "instance": 18,
+   "contract": {
+    "anchors": {},
+    "forbidden_ids": [
+     25,
+     15
+    ],
+    "required_ids": [
+     31,
+     17
+    ],
+    "required_counts": {
+     "31": 2,
+     "17": 2
+    },
+    "at_most": {
+     "29": 1
+    },
+    "forbidden_phrases": [],
+    "order_pairs": []
+   },
+   "vanilla": {
+    "policy": "vanilla",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 0,
+    "gate_rejects": 0,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": false,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.0,
+    "n_events": 1
+   },
+   "gated": {
+    "policy": "gated",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 27,
+    "gate_rejects": 3,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.1111111111111111,
+    "n_events": 25
+   },
+   "cgau": {
+    "policy": "cgau",
+    "steps": 11,
+    "forward_passes": 11,
+    "proposals": 24,
+    "gate_rejects": 3,
+    "commits": 24,
+    "early_exits": 3,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.125,
+    "n_events": 25
+   }
+  },
+  {
+   "instance": 19,
+   "contract": {
+    "anchors": {
+     "10": 2
+    },
+    "forbidden_ids": [
+     12,
+     20
+    ],
+    "required_ids": [
+     26,
+     31
+    ],
+    "required_counts": {
+     "26": 3,
+     "31": 3
+    },
+    "at_most": {
+     "15": 1
+    },
+    "forbidden_phrases": [],
+    "order_pairs": []
+   },
+   "vanilla": {
+    "policy": "vanilla",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 0,
+    "gate_rejects": 0,
+    "commits": 23,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": false,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.0,
+    "n_events": 1
+   },
+   "gated": {
+    "policy": "gated",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 27,
+    "gate_rejects": 4,
+    "commits": 23,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.14814814814814814,
+    "n_events": 24
+   },
+   "cgau": {
+    "policy": "cgau",
+    "steps": 10,
+    "forward_passes": 10,
+    "proposals": 26,
+    "gate_rejects": 8,
+    "commits": 23,
+    "early_exits": 5,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 2,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.3076923076923077,
+    "n_events": 24
+   }
+  },
+  {
+   "instance": 20,
+   "contract": {
+    "anchors": {},
+    "forbidden_ids": [
+     16,
+     12
+    ],
+    "required_ids": [
+     2,
+     8
+    ],
+    "required_counts": {
+     "2": 2,
+     "8": 2
+    },
+    "at_most": {
+     "20": 1
+    },
+    "forbidden_phrases": [],
+    "order_pairs": []
+   },
+   "vanilla": {
+    "policy": "vanilla",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 0,
+    "gate_rejects": 0,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": false,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.0,
+    "n_events": 1
+   },
+   "gated": {
+    "policy": "gated",
+    "steps": 13,
+    "forward_passes": 13,
+    "proposals": 29,
+    "gate_rejects": 5,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.1724137931034483,
+    "n_events": 25
+   },
+   "cgau": {
+    "policy": "cgau",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 27,
+    "gate_rejects": 5,
+    "commits": 24,
+    "early_exits": 2,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 1,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.18518518518518517,
+    "n_events": 25
+   }
+  },
+  {
+   "instance": 21,
+   "contract": {
+    "anchors": {},
+    "forbidden_ids": [
+     9,
+     4
+    ],
+    "required_ids": [
+     31,
+     7
+    ],
+    "required_counts": {
+     "31": 2,
+     "7": 3,
+     "21": 1,
+     "13": 1
+    },
+    "at_most": {
+     "20": 1
+    },
+    "forbidden_phrases": [],
+    "order_pairs": [
+     [
+      [
+       21
+      ],
+      [
+       13
+      ]
+     ]
+    ]
+   },
+   "vanilla": {
+    "policy": "vanilla",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 0,
+    "gate_rejects": 0,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": false,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.0,
+    "n_events": 1
+   },
+   "gated": {
+    "policy": "gated",
+    "steps": 13,
+    "forward_passes": 13,
+    "proposals": 31,
+    "gate_rejects": 7,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.22580645161290322,
+    "n_events": 25
+   },
+   "cgau": {
+    "policy": "cgau",
+    "steps": 10,
+    "forward_passes": 10,
+    "proposals": 25,
+    "gate_rejects": 6,
+    "commits": 24,
+    "early_exits": 5,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 1,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.24,
+    "n_events": 25
+   }
+  },
+  {
+   "instance": 22,
+   "contract": {
+    "anchors": {
+     "19": 7
+    },
+    "forbidden_ids": [
+     24,
+     31
+    ],
+    "required_ids": [
+     30,
+     9
+    ],
+    "required_counts": {
+     "30": 3,
+     "9": 2,
+     "20": 1,
+     "29": 1
+    },
+    "at_most": {
+     "2": 1
+    },
+    "forbidden_phrases": [],
+    "order_pairs": [
+     [
+      [
+       20
+      ],
+      [
+       29
+      ]
+     ]
+    ]
+   },
+   "vanilla": {
+    "policy": "vanilla",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 0,
+    "gate_rejects": 0,
+    "commits": 23,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": false,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.0,
+    "n_events": 1
+   },
+   "gated": {
+    "policy": "gated",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 29,
+    "gate_rejects": 6,
+    "commits": 23,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.20689655172413793,
+    "n_events": 24
+   },
+   "cgau": {
+    "policy": "cgau",
+    "steps": 9,
+    "forward_passes": 9,
+    "proposals": 24,
+    "gate_rejects": 6,
+    "commits": 23,
+    "early_exits": 5,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.25,
+    "n_events": 24
+   }
+  },
+  {
+   "instance": 23,
+   "contract": {
+    "anchors": {},
+    "forbidden_ids": [
+     8,
+     4
+    ],
+    "required_ids": [
+     31,
+     9
+    ],
+    "required_counts": {
+     "31": 3,
+     "9": 2
+    },
+    "at_most": {
+     "2": 1
+    },
+    "forbidden_phrases": [],
+    "order_pairs": []
+   },
+   "vanilla": {
+    "policy": "vanilla",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 0,
+    "gate_rejects": 0,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": false,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.0,
+    "n_events": 1
+   },
+   "gated": {
+    "policy": "gated",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 26,
+    "gate_rejects": 2,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.07692307692307693,
+    "n_events": 25
+   },
+   "cgau": {
+    "policy": "cgau",
+    "steps": 11,
+    "forward_passes": 11,
+    "proposals": 24,
+    "gate_rejects": 2,
+    "commits": 24,
+    "early_exits": 2,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.08333333333333333,
+    "n_events": 25
+   }
+  },
+  {
+   "instance": 24,
+   "contract": {
+    "anchors": {},
+    "forbidden_ids": [
+     9,
+     11
+    ],
+    "required_ids": [
+     8,
+     25
+    ],
+    "required_counts": {
+     "8": 3,
+     "25": 2,
+     "27": 1,
+     "3": 1
+    },
+    "at_most": {
+     "20": 1
+    },
+    "forbidden_phrases": [],
+    "order_pairs": [
+     [
+      [
+       27
+      ],
+      [
+       3
+      ]
+     ]
+    ]
+   },
+   "vanilla": {
+    "policy": "vanilla",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 0,
+    "gate_rejects": 0,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": false,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.0,
+    "n_events": 1
+   },
+   "gated": {
+    "policy": "gated",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 32,
+    "gate_rejects": 8,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.25,
+    "n_events": 25
+   },
+   "cgau": {
+    "policy": "cgau",
+    "steps": 8,
+    "forward_passes": 8,
+    "proposals": 24,
+    "gate_rejects": 8,
+    "commits": 24,
+    "early_exits": 8,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.3333333333333333,
+    "n_events": 25
+   }
+  },
+  {
+   "instance": 25,
+   "contract": {
+    "anchors": {},
+    "forbidden_ids": [
+     31,
+     15
+    ],
+    "required_ids": [
+     14,
+     0
+    ],
+    "required_counts": {
+     "14": 3,
+     "0": 2
+    },
+    "at_most": {
+     "8": 1
+    },
+    "forbidden_phrases": [],
+    "order_pairs": []
+   },
+   "vanilla": {
+    "policy": "vanilla",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 0,
+    "gate_rejects": 0,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": false,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.0,
+    "n_events": 1
+   },
+   "gated": {
+    "policy": "gated",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 27,
+    "gate_rejects": 3,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.1111111111111111,
+    "n_events": 25
+   },
+   "cgau": {
+    "policy": "cgau",
+    "steps": 11,
+    "forward_passes": 11,
+    "proposals": 25,
+    "gate_rejects": 3,
+    "commits": 24,
+    "early_exits": 2,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.12,
+    "n_events": 25
+   }
+  },
+  {
+   "instance": 26,
+   "contract": {
+    "anchors": {
+     "8": 2
+    },
+    "forbidden_ids": [
+     0,
+     21
+    ],
+    "required_ids": [
+     14,
+     17
+    ],
+    "required_counts": {
+     "14": 3,
+     "17": 3
+    },
+    "at_most": {
+     "3": 1
+    },
+    "forbidden_phrases": [],
+    "order_pairs": []
+   },
+   "vanilla": {
+    "policy": "vanilla",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 0,
+    "gate_rejects": 0,
+    "commits": 23,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": false,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.0,
+    "n_events": 1
+   },
+   "gated": {
+    "policy": "gated",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 26,
+    "gate_rejects": 3,
+    "commits": 23,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.11538461538461539,
+    "n_events": 24
+   },
+   "cgau": {
+    "policy": "cgau",
+    "steps": 11,
+    "forward_passes": 11,
+    "proposals": 24,
+    "gate_rejects": 3,
+    "commits": 23,
+    "early_exits": 2,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.125,
+    "n_events": 24
+   }
+  },
+  {
+   "instance": 27,
+   "contract": {
+    "anchors": {},
+    "forbidden_ids": [
+     11,
+     19
+    ],
+    "required_ids": [
+     30,
+     13
+    ],
+    "required_counts": {
+     "30": 2,
+     "13": 2
+    },
+    "at_most": {
+     "15": 1
+    },
+    "forbidden_phrases": [],
+    "order_pairs": []
+   },
+   "vanilla": {
+    "policy": "vanilla",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 0,
+    "gate_rejects": 0,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": false,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.0,
+    "n_events": 1
+   },
+   "gated": {
+    "policy": "gated",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 26,
+    "gate_rejects": 2,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.07692307692307693,
+    "n_events": 25
+   },
+   "cgau": {
+    "policy": "cgau",
+    "steps": 10,
+    "forward_passes": 10,
+    "proposals": 22,
+    "gate_rejects": 2,
+    "commits": 24,
+    "early_exits": 4,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.09090909090909091,
+    "n_events": 25
+   }
+  },
+  {
+   "instance": 28,
+   "contract": {
+    "anchors": {
+     "22": 27
+    },
+    "forbidden_ids": [
+     1,
+     21
+    ],
+    "required_ids": [
+     25,
+     9
+    ],
+    "required_counts": {
+     "25": 3,
+     "9": 2
+    },
+    "at_most": {
+     "18": 1
+    },
+    "forbidden_phrases": [],
+    "order_pairs": []
+   },
+   "vanilla": {
+    "policy": "vanilla",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 0,
+    "gate_rejects": 0,
+    "commits": 23,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": false,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.0,
+    "n_events": 1
+   },
+   "gated": {
+    "policy": "gated",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 28,
+    "gate_rejects": 5,
+    "commits": 23,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.17857142857142858,
+    "n_events": 24
+   },
+   "cgau": {
+    "policy": "cgau",
+    "steps": 10,
+    "forward_passes": 10,
+    "proposals": 25,
+    "gate_rejects": 5,
+    "commits": 23,
+    "early_exits": 3,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.2,
+    "n_events": 24
+   }
+  },
+  {
+   "instance": 29,
+   "contract": {
+    "anchors": {},
+    "forbidden_ids": [
+     22,
+     23
+    ],
+    "required_ids": [
+     10,
+     20
+    ],
+    "required_counts": {
+     "10": 2,
+     "20": 2
+    },
+    "at_most": {
+     "2": 1
+    },
+    "forbidden_phrases": [],
+    "order_pairs": []
+   },
+   "vanilla": {
+    "policy": "vanilla",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 0,
+    "gate_rejects": 0,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": false,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.0,
+    "n_events": 1
+   },
+   "gated": {
+    "policy": "gated",
+    "steps": 13,
+    "forward_passes": 13,
+    "proposals": 30,
+    "gate_rejects": 6,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.2,
+    "n_events": 25
+   },
+   "cgau": {
+    "policy": "cgau",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 28,
+    "gate_rejects": 6,
+    "commits": 24,
+    "early_exits": 2,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 1,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.21428571428571427,
+    "n_events": 25
+   }
+  },
+  {
+   "instance": 30,
+   "contract": {
+    "anchors": {},
+    "forbidden_ids": [
+     22,
+     12
+    ],
+    "required_ids": [
+     24,
+     0
+    ],
+    "required_counts": {
+     "24": 3,
+     "0": 3,
+     "8": 1,
+     "14": 1
+    },
+    "at_most": {
+     "30": 1
+    },
+    "forbidden_phrases": [],
+    "order_pairs": [
+     [
+      [
+       8
+      ],
+      [
+       14
+      ]
+     ]
+    ]
+   },
+   "vanilla": {
+    "policy": "vanilla",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 0,
+    "gate_rejects": 0,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": false,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.0,
+    "n_events": 1
+   },
+   "gated": {
+    "policy": "gated",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 28,
+    "gate_rejects": 4,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.14285714285714285,
+    "n_events": 25
+   },
+   "cgau": {
+    "policy": "cgau",
+    "steps": 11,
+    "forward_passes": 11,
+    "proposals": 26,
+    "gate_rejects": 4,
+    "commits": 24,
+    "early_exits": 2,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.15384615384615385,
+    "n_events": 25
+   }
+  },
+  {
+   "instance": 31,
+   "contract": {
+    "anchors": {},
+    "forbidden_ids": [
+     17,
+     27
+    ],
+    "required_ids": [
+     25,
+     14
+    ],
+    "required_counts": {
+     "25": 2,
+     "14": 3,
+     "11": 1,
+     "29": 1
+    },
+    "at_most": {
+     "1": 1
+    },
+    "forbidden_phrases": [],
+    "order_pairs": [
+     [
+      [
+       11
+      ],
+      [
+       29
+      ]
+     ]
+    ]
+   },
+   "vanilla": {
+    "policy": "vanilla",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 0,
+    "gate_rejects": 0,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": false,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.0,
+    "n_events": 1
+   },
+   "gated": {
+    "policy": "gated",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 29,
+    "gate_rejects": 5,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.1724137931034483,
+    "n_events": 25
+   },
+   "cgau": {
+    "policy": "cgau",
+    "steps": 11,
+    "forward_passes": 11,
+    "proposals": 30,
+    "gate_rejects": 9,
+    "commits": 24,
+    "early_exits": 3,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 1,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.3,
+    "n_events": 25
+   }
+  },
+  {
+   "instance": 32,
+   "contract": {
+    "anchors": {},
+    "forbidden_ids": [
+     27,
+     12
+    ],
+    "required_ids": [
+     13,
+     21
+    ],
+    "required_counts": {
+     "13": 3,
+     "21": 2,
+     "4": 1,
+     "5": 1
+    },
+    "at_most": {
+     "7": 1
+    },
+    "forbidden_phrases": [],
+    "order_pairs": [
+     [
+      [
+       4
+      ],
+      [
+       5
+      ]
+     ]
+    ]
+   },
+   "vanilla": {
+    "policy": "vanilla",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 0,
+    "gate_rejects": 0,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": false,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.0,
+    "n_events": 1
+   },
+   "gated": {
+    "policy": "gated",
+    "steps": 13,
+    "forward_passes": 13,
+    "proposals": 29,
+    "gate_rejects": 5,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.1724137931034483,
+    "n_events": 25
+   },
+   "cgau": {
+    "policy": "cgau",
+    "steps": 11,
+    "forward_passes": 11,
+    "proposals": 25,
+    "gate_rejects": 5,
+    "commits": 24,
+    "early_exits": 4,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 1,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.2,
+    "n_events": 25
+   }
+  },
+  {
+   "instance": 33,
+   "contract": {
+    "anchors": {
+     "13": 12
+    },
+    "forbidden_ids": [
+     3,
+     25
+    ],
+    "required_ids": [
+     17,
+     20
+    ],
+    "required_counts": {
+     "17": 3,
+     "20": 3
+    },
+    "at_most": {
+     "16": 1
+    },
+    "forbidden_phrases": [],
+    "order_pairs": []
+   },
+   "vanilla": {
+    "policy": "vanilla",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 0,
+    "gate_rejects": 0,
+    "commits": 23,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": false,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.0,
+    "n_events": 1
+   },
+   "gated": {
+    "policy": "gated",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 24,
+    "gate_rejects": 1,
+    "commits": 23,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.041666666666666664,
+    "n_events": 24
+   },
+   "cgau": {
+    "policy": "cgau",
+    "steps": 11,
+    "forward_passes": 11,
+    "proposals": 25,
+    "gate_rejects": 5,
+    "commits": 23,
+    "early_exits": 3,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 1,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.2,
+    "n_events": 24
+   }
+  },
+  {
+   "instance": 34,
+   "contract": {
+    "anchors": {},
+    "forbidden_ids": [
+     18,
+     26
+    ],
+    "required_ids": [
+     9,
+     19
+    ],
+    "required_counts": {
+     "9": 2,
+     "19": 2
+    },
+    "at_most": {
+     "5": 1
+    },
+    "forbidden_phrases": [],
+    "order_pairs": []
+   },
+   "vanilla": {
+    "policy": "vanilla",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 0,
+    "gate_rejects": 0,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.0,
+    "n_events": 1
+   },
+   "gated": {
+    "policy": "gated",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 24,
+    "gate_rejects": 0,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.0,
+    "n_events": 25
+   },
+   "cgau": {
+    "policy": "cgau",
+    "steps": 10,
+    "forward_passes": 10,
+    "proposals": 19,
+    "gate_rejects": 0,
+    "commits": 24,
+    "early_exits": 5,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.0,
+    "n_events": 25
+   }
+  },
+  {
+   "instance": 35,
+   "contract": {
+    "anchors": {
+     "15": 24
+    },
+    "forbidden_ids": [
+     14,
+     21
+    ],
+    "required_ids": [
+     29,
+     19
+    ],
+    "required_counts": {
+     "29": 2,
+     "19": 3
+    },
+    "at_most": {
+     "13": 1
+    },
+    "forbidden_phrases": [],
+    "order_pairs": []
+   },
+   "vanilla": {
+    "policy": "vanilla",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 0,
+    "gate_rejects": 0,
+    "commits": 23,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": false,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.0,
+    "n_events": 1
+   },
+   "gated": {
+    "policy": "gated",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 26,
+    "gate_rejects": 3,
+    "commits": 23,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.11538461538461539,
+    "n_events": 24
+   },
+   "cgau": {
+    "policy": "cgau",
+    "steps": 10,
+    "forward_passes": 10,
+    "proposals": 23,
+    "gate_rejects": 3,
+    "commits": 23,
+    "early_exits": 3,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.13043478260869565,
+    "n_events": 24
+   }
+  },
+  {
+   "instance": 36,
+   "contract": {
+    "anchors": {
+     "16": 31
+    },
+    "forbidden_ids": [
+     1,
+     23
+    ],
+    "required_ids": [
+     14,
+     10
+    ],
+    "required_counts": {
+     "14": 2,
+     "10": 3
+    },
+    "at_most": {
+     "30": 1
+    },
+    "forbidden_phrases": [],
+    "order_pairs": []
+   },
+   "vanilla": {
+    "policy": "vanilla",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 0,
+    "gate_rejects": 0,
+    "commits": 23,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.0,
+    "n_events": 1
+   },
+   "gated": {
+    "policy": "gated",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 23,
+    "gate_rejects": 0,
+    "commits": 23,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.0,
+    "n_events": 24
+   },
+   "cgau": {
+    "policy": "cgau",
+    "steps": 11,
+    "forward_passes": 11,
+    "proposals": 25,
+    "gate_rejects": 3,
+    "commits": 23,
+    "early_exits": 1,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.12,
+    "n_events": 24
+   }
+  },
+  {
+   "instance": 37,
+   "contract": {
+    "anchors": {},
+    "forbidden_ids": [
+     9,
+     2
+    ],
+    "required_ids": [
+     18,
+     25
+    ],
+    "required_counts": {
+     "18": 2,
+     "25": 2,
+     "16": 1,
+     "22": 1
+    },
+    "at_most": {
+     "7": 1
+    },
+    "forbidden_phrases": [],
+    "order_pairs": [
+     [
+      [
+       16
+      ],
+      [
+       22
+      ]
+     ]
+    ]
+   },
+   "vanilla": {
+    "policy": "vanilla",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 0,
+    "gate_rejects": 0,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": false,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.0,
+    "n_events": 1
+   },
+   "gated": {
+    "policy": "gated",
+    "steps": 13,
+    "forward_passes": 13,
+    "proposals": 31,
+    "gate_rejects": 7,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.22580645161290322,
+    "n_events": 25
+   },
+   "cgau": {
+    "policy": "cgau",
+    "steps": 9,
+    "forward_passes": 9,
+    "proposals": 26,
+    "gate_rejects": 10,
+    "commits": 24,
+    "early_exits": 8,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 2,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.38461538461538464,
+    "n_events": 25
+   }
+  },
+  {
+   "instance": 38,
+   "contract": {
+    "anchors": {},
+    "forbidden_ids": [
+     30,
+     27
+    ],
+    "required_ids": [
+     31,
+     14
+    ],
+    "required_counts": {
+     "31": 2,
+     "14": 2
+    },
+    "at_most": {
+     "3": 1
+    },
+    "forbidden_phrases": [],
+    "order_pairs": []
+   },
+   "vanilla": {
+    "policy": "vanilla",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 0,
+    "gate_rejects": 0,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": false,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.0,
+    "n_events": 1
+   },
+   "gated": {
+    "policy": "gated",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 28,
+    "gate_rejects": 4,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.14285714285714285,
+    "n_events": 25
+   },
+   "cgau": {
+    "policy": "cgau",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 27,
+    "gate_rejects": 4,
+    "commits": 24,
+    "early_exits": 1,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.14814814814814814,
+    "n_events": 25
+   }
+  },
+  {
+   "instance": 39,
+   "contract": {
+    "anchors": {},
+    "forbidden_ids": [
+     30,
+     1
+    ],
+    "required_ids": [
+     5,
+     13
+    ],
+    "required_counts": {
+     "5": 2,
+     "13": 3,
+     "10": 1,
+     "26": 1
+    },
+    "at_most": {
+     "23": 1
+    },
+    "forbidden_phrases": [],
+    "order_pairs": [
+     [
+      [
+       10
+      ],
+      [
+       26
+      ]
+     ]
+    ]
+   },
+   "vanilla": {
+    "policy": "vanilla",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 0,
+    "gate_rejects": 0,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": false,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.0,
+    "n_events": 1
+   },
+   "gated": {
+    "policy": "gated",
+    "steps": 13,
+    "forward_passes": 13,
+    "proposals": 29,
+    "gate_rejects": 5,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.1724137931034483,
+    "n_events": 25
+   },
+   "cgau": {
+    "policy": "cgau",
+    "steps": 11,
+    "forward_passes": 11,
+    "proposals": 22,
+    "gate_rejects": 1,
+    "commits": 24,
+    "early_exits": 3,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.045454545454545456,
+    "n_events": 25
+   }
+  },
+  {
+   "instance": 40,
+   "contract": {
+    "anchors": {},
+    "forbidden_ids": [
+     29,
+     2
+    ],
+    "required_ids": [
+     24,
+     28
+    ],
+    "required_counts": {
+     "24": 3,
+     "28": 2
+    },
+    "at_most": {
+     "9": 1
+    },
+    "forbidden_phrases": [],
+    "order_pairs": []
+   },
+   "vanilla": {
+    "policy": "vanilla",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 0,
+    "gate_rejects": 0,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": false,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.0,
+    "n_events": 1
+   },
+   "gated": {
+    "policy": "gated",
+    "steps": 13,
+    "forward_passes": 13,
+    "proposals": 30,
+    "gate_rejects": 6,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.2,
+    "n_events": 25
+   },
+   "cgau": {
+    "policy": "cgau",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 28,
+    "gate_rejects": 6,
+    "commits": 24,
+    "early_exits": 2,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 2,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.21428571428571427,
+    "n_events": 25
+   }
+  },
+  {
+   "instance": 41,
+   "contract": {
+    "anchors": {},
+    "forbidden_ids": [
+     22,
+     31
+    ],
+    "required_ids": [
+     14,
+     0
+    ],
+    "required_counts": {
+     "14": 3,
+     "0": 3
+    },
+    "at_most": {
+     "15": 1
+    },
+    "forbidden_phrases": [],
+    "order_pairs": []
+   },
+   "vanilla": {
+    "policy": "vanilla",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 0,
+    "gate_rejects": 0,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": false,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.0,
+    "n_events": 1
+   },
+   "gated": {
+    "policy": "gated",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 28,
+    "gate_rejects": 4,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.14285714285714285,
+    "n_events": 25
+   },
+   "cgau": {
+    "policy": "cgau",
+    "steps": 11,
+    "forward_passes": 11,
+    "proposals": 26,
+    "gate_rejects": 4,
+    "commits": 24,
+    "early_exits": 2,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.15384615384615385,
+    "n_events": 25
+   }
+  },
+  {
+   "instance": 42,
+   "contract": {
+    "anchors": {
+     "16": 10
+    },
+    "forbidden_ids": [
+     31,
+     21
+    ],
+    "required_ids": [
+     20,
+     11
+    ],
+    "required_counts": {
+     "20": 2,
+     "11": 2
+    },
+    "at_most": {
+     "1": 1
+    },
+    "forbidden_phrases": [],
+    "order_pairs": []
+   },
+   "vanilla": {
+    "policy": "vanilla",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 0,
+    "gate_rejects": 0,
+    "commits": 23,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": false,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.0,
+    "n_events": 1
+   },
+   "gated": {
+    "policy": "gated",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 27,
+    "gate_rejects": 4,
+    "commits": 23,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.14814814814814814,
+    "n_events": 24
+   },
+   "cgau": {
+    "policy": "cgau",
+    "steps": 11,
+    "forward_passes": 11,
+    "proposals": 26,
+    "gate_rejects": 4,
+    "commits": 23,
+    "early_exits": 1,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.15384615384615385,
+    "n_events": 24
+   }
+  },
+  {
+   "instance": 43,
+   "contract": {
+    "anchors": {
+     "23": 30
+    },
+    "forbidden_ids": [
+     13,
+     6
+    ],
+    "required_ids": [
+     15,
+     12
+    ],
+    "required_counts": {
+     "15": 3,
+     "12": 2,
+     "1": 1,
+     "22": 1
+    },
+    "at_most": {
+     "9": 1
+    },
+    "forbidden_phrases": [],
+    "order_pairs": [
+     [
+      [
+       1
+      ],
+      [
+       22
+      ]
+     ]
+    ]
+   },
+   "vanilla": {
+    "policy": "vanilla",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 0,
+    "gate_rejects": 0,
+    "commits": 23,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": false,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.0,
+    "n_events": 1
+   },
+   "gated": {
+    "policy": "gated",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 28,
+    "gate_rejects": 5,
+    "commits": 23,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.17857142857142858,
+    "n_events": 24
+   },
+   "cgau": {
+    "policy": "cgau",
+    "steps": 8,
+    "forward_passes": 8,
+    "proposals": 18,
+    "gate_rejects": 2,
+    "commits": 23,
+    "early_exits": 7,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.1111111111111111,
+    "n_events": 24
+   }
+  },
+  {
+   "instance": 44,
+   "contract": {
+    "anchors": {},
+    "forbidden_ids": [
+     14,
+     5
+    ],
+    "required_ids": [
+     16,
+     26
+    ],
+    "required_counts": {
+     "16": 3,
+     "26": 2,
+     "2": 1,
+     "29": 1
+    },
+    "at_most": {
+     "11": 1
+    },
+    "forbidden_phrases": [],
+    "order_pairs": [
+     [
+      [
+       2
+      ],
+      [
+       29
+      ]
+     ]
+    ]
+   },
+   "vanilla": {
+    "policy": "vanilla",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 0,
+    "gate_rejects": 0,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": false,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.0,
+    "n_events": 1
+   },
+   "gated": {
+    "policy": "gated",
+    "steps": 13,
+    "forward_passes": 13,
+    "proposals": 29,
+    "gate_rejects": 5,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.1724137931034483,
+    "n_events": 25
+   },
+   "cgau": {
+    "policy": "cgau",
+    "steps": 10,
+    "forward_passes": 10,
+    "proposals": 23,
+    "gate_rejects": 5,
+    "commits": 24,
+    "early_exits": 6,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 2,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.21739130434782608,
+    "n_events": 25
+   }
+  },
+  {
+   "instance": 45,
+   "contract": {
+    "anchors": {},
+    "forbidden_ids": [
+     25,
+     29
+    ],
+    "required_ids": [
+     20,
+     16
+    ],
+    "required_counts": {
+     "20": 3,
+     "16": 3,
+     "21": 1,
+     "7": 1
+    },
+    "at_most": {
+     "23": 1
+    },
+    "forbidden_phrases": [],
+    "order_pairs": [
+     [
+      [
+       21
+      ],
+      [
+       7
+      ]
+     ]
+    ]
+   },
+   "vanilla": {
+    "policy": "vanilla",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 0,
+    "gate_rejects": 0,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": false,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.0,
+    "n_events": 1
+   },
+   "gated": {
+    "policy": "gated",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 29,
+    "gate_rejects": 5,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.1724137931034483,
+    "n_events": 25
+   },
+   "cgau": {
+    "policy": "cgau",
+    "steps": 11,
+    "forward_passes": 11,
+    "proposals": 30,
+    "gate_rejects": 10,
+    "commits": 24,
+    "early_exits": 4,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 1,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.3333333333333333,
+    "n_events": 25
+   }
+  },
+  {
+   "instance": 46,
+   "contract": {
+    "anchors": {},
+    "forbidden_ids": [
+     25,
+     27
+    ],
+    "required_ids": [
+     21,
+     17
+    ],
+    "required_counts": {
+     "21": 3,
+     "17": 3,
+     "26": 1,
+     "28": 1
+    },
+    "at_most": {
+     "6": 1
+    },
+    "forbidden_phrases": [],
+    "order_pairs": [
+     [
+      [
+       26
+      ],
+      [
+       28
+      ]
+     ]
+    ]
+   },
+   "vanilla": {
+    "policy": "vanilla",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 0,
+    "gate_rejects": 0,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": false,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.0,
+    "n_events": 1
+   },
+   "gated": {
+    "policy": "gated",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 29,
+    "gate_rejects": 5,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.1724137931034483,
+    "n_events": 25
+   },
+   "cgau": {
+    "policy": "cgau",
+    "steps": 10,
+    "forward_passes": 10,
+    "proposals": 25,
+    "gate_rejects": 5,
+    "commits": 24,
+    "early_exits": 4,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.2,
+    "n_events": 25
+   }
+  },
+  {
+   "instance": 47,
+   "contract": {
+    "anchors": {},
+    "forbidden_ids": [
+     2,
+     15
+    ],
+    "required_ids": [
+     16,
+     13
+    ],
+    "required_counts": {
+     "16": 3,
+     "13": 3,
+     "18": 1,
+     "22": 1
+    },
+    "at_most": {
+     "14": 1
+    },
+    "forbidden_phrases": [],
+    "order_pairs": [
+     [
+      [
+       18
+      ],
+      [
+       22
+      ]
+     ]
+    ]
+   },
+   "vanilla": {
+    "policy": "vanilla",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 0,
+    "gate_rejects": 0,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": false,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.0,
+    "n_events": 1
+   },
+   "gated": {
+    "policy": "gated",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 31,
+    "gate_rejects": 7,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.22580645161290322,
+    "n_events": 25
+   },
+   "cgau": {
+    "policy": "cgau",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 33,
+    "gate_rejects": 11,
+    "commits": 24,
+    "early_exits": 2,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 1,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.3333333333333333,
+    "n_events": 25
+   }
+  },
+  {
+   "instance": 48,
+   "contract": {
+    "anchors": {},
+    "forbidden_ids": [
+     14,
+     15
+    ],
+    "required_ids": [
+     28,
+     26
+    ],
+    "required_counts": {
+     "28": 2,
+     "26": 3,
+     "31": 1,
+     "19": 1
+    },
+    "at_most": {
+     "29": 1
+    },
+    "forbidden_phrases": [],
+    "order_pairs": [
+     [
+      [
+       31
+      ],
+      [
+       19
+      ]
+     ]
+    ]
+   },
+   "vanilla": {
+    "policy": "vanilla",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 0,
+    "gate_rejects": 0,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": false,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.0,
+    "n_events": 1
+   },
+   "gated": {
+    "policy": "gated",
+    "steps": 13,
+    "forward_passes": 13,
+    "proposals": 33,
+    "gate_rejects": 9,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.2727272727272727,
+    "n_events": 25
+   },
+   "cgau": {
+    "policy": "cgau",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 31,
+    "gate_rejects": 9,
+    "commits": 24,
+    "early_exits": 2,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 2,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.2903225806451613,
+    "n_events": 25
+   }
+  },
+  {
+   "instance": 49,
+   "contract": {
+    "anchors": {},
+    "forbidden_ids": [
+     20,
+     7
+    ],
+    "required_ids": [
+     11,
+     17
+    ],
+    "required_counts": {
+     "11": 3,
+     "17": 3
+    },
+    "at_most": {
+     "10": 1
+    },
+    "forbidden_phrases": [],
+    "order_pairs": []
+   },
+   "vanilla": {
+    "policy": "vanilla",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 0,
+    "gate_rejects": 0,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": false,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.0,
+    "n_events": 1
+   },
+   "gated": {
+    "policy": "gated",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 29,
+    "gate_rejects": 5,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.1724137931034483,
+    "n_events": 25
+   },
+   "cgau": {
+    "policy": "cgau",
+    "steps": 9,
+    "forward_passes": 9,
+    "proposals": 23,
+    "gate_rejects": 5,
+    "commits": 24,
+    "early_exits": 6,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.21739130434782608,
+    "n_events": 25
+   }
+  },
+  {
+   "instance": 50,
+   "contract": {
+    "anchors": {
+     "19": 13
+    },
+    "forbidden_ids": [
+     8,
+     3
+    ],
+    "required_ids": [
+     7,
+     11
+    ],
+    "required_counts": {
+     "7": 3,
+     "11": 3
+    },
+    "at_most": {
+     "4": 1
+    },
+    "forbidden_phrases": [],
+    "order_pairs": []
+   },
+   "vanilla": {
+    "policy": "vanilla",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 0,
+    "gate_rejects": 0,
+    "commits": 23,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": false,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.0,
+    "n_events": 1
+   },
+   "gated": {
+    "policy": "gated",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 25,
+    "gate_rejects": 2,
+    "commits": 23,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.08,
+    "n_events": 24
+   },
+   "cgau": {
+    "policy": "cgau",
+    "steps": 11,
+    "forward_passes": 11,
+    "proposals": 23,
+    "gate_rejects": 2,
+    "commits": 23,
+    "early_exits": 2,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.08695652173913043,
+    "n_events": 24
+   }
+  },
+  {
+   "instance": 51,
+   "contract": {
+    "anchors": {},
+    "forbidden_ids": [
+     25,
+     21
+    ],
+    "required_ids": [
+     9,
+     19
+    ],
+    "required_counts": {
+     "9": 2,
+     "19": 3,
+     "3": 1,
+     "27": 1
+    },
+    "at_most": {
+     "15": 1
+    },
+    "forbidden_phrases": [],
+    "order_pairs": [
+     [
+      [
+       3
+      ],
+      [
+       27
+      ]
+     ]
+    ]
+   },
+   "vanilla": {
+    "policy": "vanilla",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 0,
+    "gate_rejects": 0,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": false,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.0,
+    "n_events": 1
+   },
+   "gated": {
+    "policy": "gated",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 27,
+    "gate_rejects": 3,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.1111111111111111,
+    "n_events": 25
+   },
+   "cgau": {
+    "policy": "cgau",
+    "steps": 10,
+    "forward_passes": 10,
+    "proposals": 26,
+    "gate_rejects": 7,
+    "commits": 24,
+    "early_exits": 5,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 1,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.2692307692307692,
+    "n_events": 25
+   }
+  },
+  {
+   "instance": 52,
+   "contract": {
+    "anchors": {},
+    "forbidden_ids": [
+     26,
+     5
+    ],
+    "required_ids": [
+     12,
+     14
+    ],
+    "required_counts": {
+     "12": 3,
+     "14": 3
+    },
+    "at_most": {
+     "25": 1
+    },
+    "forbidden_phrases": [],
+    "order_pairs": []
+   },
+   "vanilla": {
+    "policy": "vanilla",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 0,
+    "gate_rejects": 0,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": false,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.0,
+    "n_events": 1
+   },
+   "gated": {
+    "policy": "gated",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 29,
+    "gate_rejects": 5,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.1724137931034483,
+    "n_events": 25
+   },
+   "cgau": {
+    "policy": "cgau",
+    "steps": 11,
+    "forward_passes": 11,
+    "proposals": 26,
+    "gate_rejects": 5,
+    "commits": 24,
+    "early_exits": 3,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.19230769230769232,
+    "n_events": 25
+   }
+  },
+  {
+   "instance": 53,
+   "contract": {
+    "anchors": {},
+    "forbidden_ids": [
+     26,
+     19
+    ],
+    "required_ids": [
+     4,
+     0
+    ],
+    "required_counts": {
+     "4": 3,
+     "0": 3,
+     "9": 1,
+     "8": 1
+    },
+    "at_most": {
+     "1": 1
+    },
+    "forbidden_phrases": [],
+    "order_pairs": [
+     [
+      [
+       9
+      ],
+      [
+       8
+      ]
+     ]
+    ]
+   },
+   "vanilla": {
+    "policy": "vanilla",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 0,
+    "gate_rejects": 0,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": false,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.0,
+    "n_events": 1
+   },
+   "gated": {
+    "policy": "gated",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 25,
+    "gate_rejects": 1,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.04,
+    "n_events": 25
+   },
+   "cgau": {
+    "policy": "cgau",
+    "steps": 10,
+    "forward_passes": 10,
+    "proposals": 23,
+    "gate_rejects": 4,
+    "commits": 24,
+    "early_exits": 5,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.17391304347826086,
+    "n_events": 25
+   }
+  },
+  {
+   "instance": 54,
+   "contract": {
+    "anchors": {},
+    "forbidden_ids": [
+     18,
+     26
+    ],
+    "required_ids": [
+     25,
+     31
+    ],
+    "required_counts": {
+     "25": 2,
+     "31": 2,
+     "22": 1,
+     "8": 1
+    },
+    "at_most": {
+     "17": 1
+    },
+    "forbidden_phrases": [],
+    "order_pairs": [
+     [
+      [
+       22
+      ],
+      [
+       8
+      ]
+     ]
+    ]
+   },
+   "vanilla": {
+    "policy": "vanilla",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 0,
+    "gate_rejects": 0,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": false,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.0,
+    "n_events": 1
+   },
+   "gated": {
+    "policy": "gated",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 29,
+    "gate_rejects": 5,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.1724137931034483,
+    "n_events": 25
+   },
+   "cgau": {
+    "policy": "cgau",
+    "steps": 10,
+    "forward_passes": 10,
+    "proposals": 27,
+    "gate_rejects": 9,
+    "commits": 24,
+    "early_exits": 6,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 3,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.3333333333333333,
+    "n_events": 25
+   }
+  },
+  {
+   "instance": 55,
+   "contract": {
+    "anchors": {},
+    "forbidden_ids": [
+     4,
+     21
+    ],
+    "required_ids": [
+     20,
+     5
+    ],
+    "required_counts": {
+     "20": 2,
+     "5": 2,
+     "26": 1,
+     "15": 1
+    },
+    "at_most": {
+     "28": 1
+    },
+    "forbidden_phrases": [],
+    "order_pairs": [
+     [
+      [
+       26
+      ],
+      [
+       15
+      ]
+     ]
+    ]
+   },
+   "vanilla": {
+    "policy": "vanilla",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 0,
+    "gate_rejects": 0,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": false,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.0,
+    "n_events": 1
+   },
+   "gated": {
+    "policy": "gated",
+    "steps": 13,
+    "forward_passes": 13,
+    "proposals": 30,
+    "gate_rejects": 6,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.2,
+    "n_events": 25
+   },
+   "cgau": {
+    "policy": "cgau",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 28,
+    "gate_rejects": 6,
+    "commits": 24,
+    "early_exits": 2,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 1,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.21428571428571427,
+    "n_events": 25
+   }
+  },
+  {
+   "instance": 56,
+   "contract": {
+    "anchors": {},
+    "forbidden_ids": [
+     21,
+     2
+    ],
+    "required_ids": [
+     18,
+     14
+    ],
+    "required_counts": {
+     "18": 2,
+     "14": 3,
+     "31": 1,
+     "10": 1
+    },
+    "at_most": {
+     "1": 1
+    },
+    "forbidden_phrases": [],
+    "order_pairs": [
+     [
+      [
+       31
+      ],
+      [
+       10
+      ]
+     ]
+    ]
+   },
+   "vanilla": {
+    "policy": "vanilla",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 0,
+    "gate_rejects": 0,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": false,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.0,
+    "n_events": 1
+   },
+   "gated": {
+    "policy": "gated",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 27,
+    "gate_rejects": 3,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.1111111111111111,
+    "n_events": 25
+   },
+   "cgau": {
+    "policy": "cgau",
+    "steps": 10,
+    "forward_passes": 10,
+    "proposals": 23,
+    "gate_rejects": 3,
+    "commits": 24,
+    "early_exits": 4,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.13043478260869565,
+    "n_events": 25
+   }
+  },
+  {
+   "instance": 57,
+   "contract": {
+    "anchors": {},
+    "forbidden_ids": [
+     5,
+     31
+    ],
+    "required_ids": [
+     15,
+     19
+    ],
+    "required_counts": {
+     "15": 3,
+     "19": 2,
+     "1": 1,
+     "11": 1
+    },
+    "at_most": {
+     "24": 1
+    },
+    "forbidden_phrases": [],
+    "order_pairs": [
+     [
+      [
+       1
+      ],
+      [
+       11
+      ]
+     ]
+    ]
+   },
+   "vanilla": {
+    "policy": "vanilla",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 0,
+    "gate_rejects": 0,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": false,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.0,
+    "n_events": 1
+   },
+   "gated": {
+    "policy": "gated",
+    "steps": 13,
+    "forward_passes": 13,
+    "proposals": 34,
+    "gate_rejects": 10,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.29411764705882354,
+    "n_events": 25
+   },
+   "cgau": {
+    "policy": "cgau",
+    "steps": 9,
+    "forward_passes": 9,
+    "proposals": 24,
+    "gate_rejects": 6,
+    "commits": 24,
+    "early_exits": 6,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.25,
+    "n_events": 25
+   }
+  },
+  {
+   "instance": 58,
+   "contract": {
+    "anchors": {},
+    "forbidden_ids": [
+     13,
+     8
+    ],
+    "required_ids": [
+     9,
+     27
+    ],
+    "required_counts": {
+     "9": 3,
+     "27": 3
+    },
+    "at_most": {
+     "7": 1
+    },
+    "forbidden_phrases": [],
+    "order_pairs": []
+   },
+   "vanilla": {
+    "policy": "vanilla",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 0,
+    "gate_rejects": 0,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.0,
+    "n_events": 1
+   },
+   "gated": {
+    "policy": "gated",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 24,
+    "gate_rejects": 0,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.0,
+    "n_events": 25
+   },
+   "cgau": {
+    "policy": "cgau",
+    "steps": 10,
+    "forward_passes": 10,
+    "proposals": 20,
+    "gate_rejects": 0,
+    "commits": 24,
+    "early_exits": 4,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.0,
+    "n_events": 25
+   }
+  },
+  {
+   "instance": 59,
+   "contract": {
+    "anchors": {},
+    "forbidden_ids": [
+     7,
+     20
+    ],
+    "required_ids": [
+     6,
+     13
+    ],
+    "required_counts": {
+     "6": 2,
+     "13": 3,
+     "16": 1,
+     "9": 1
+    },
+    "at_most": {
+     "23": 1
+    },
+    "forbidden_phrases": [],
+    "order_pairs": [
+     [
+      [
+       16
+      ],
+      [
+       9
+      ]
+     ]
+    ]
+   },
+   "vanilla": {
+    "policy": "vanilla",
+    "steps": 12,
+    "forward_passes": 12,
+    "proposals": 0,
+    "gate_rejects": 0,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": false,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.0,
+    "n_events": 1
+   },
+   "gated": {
+    "policy": "gated",
+    "steps": 18,
+    "forward_passes": 18,
+    "proposals": 71,
+    "gate_rejects": 47,
+    "commits": 24,
+    "early_exits": 0,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 0,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.6619718309859155,
+    "n_events": 25
+   },
+   "cgau": {
+    "policy": "cgau",
+    "steps": 13,
+    "forward_passes": 13,
+    "proposals": 40,
+    "gate_rejects": 19,
+    "commits": 24,
+    "early_exits": 3,
+    "remasks": 0,
+    "rollbacks": 0,
+    "taboo_hits": 10,
+    "stalls": 0,
+    "completed": true,
+    "final_valid": true,
+    "unrecoverable": false,
+    "cert_failure_rate": 0.475,
+    "n_events": 25
+   }
+  }
+ ]
+}

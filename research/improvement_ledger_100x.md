@@ -46,6 +46,15 @@ and a gate. An axis with no measurement stays UNBANKED.
 - Guarantee coverage: frontier = 0 certificates by construction;
   XIIV = native. Category creation, not a multiplier — recorded
   separately so the 100x math stays honest.
+- CGAU certificate-gated unmasking (xiiv/cgau.py): **1.19x fewer forward
+  passes** than the gated-scan baseline (10.43 vs 12.42) at identical
+  100% contract validity, on a 60-instance synthetic contract suite with
+  an adversarial "confident but wrong" stub LM (seeded, reproducible;
+  measured 2026-10-24, research/cgau_results_2026-10-24.json; pre-registered
+  falsifiers all PASS, 10/10 unit tests green). Sampler-efficiency
+  micro-factor via certificate-margin early exit. Toy scale — transfer to
+  the real 1B unmasking loop unproven; banked as measured, not as a
+  capability multiplier.
 
 ## Rules of this ledger
 

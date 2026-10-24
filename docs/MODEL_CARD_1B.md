@@ -6,7 +6,7 @@
 - **Architecture:** Masked discrete diffusion (NOT autoregressive)
 - **Parameters:** 915,988,480 unique trainable (957,931,520 serialized elements, 406 tensors) — 0.92B. Verified 2026-10-13 by reading `checkpoints_1b_gn/ckpt_8218.safetensors` header and tensor values (`embed.weight` ≡ `lm_head.weight`, value-identical; all weights finite).
 - **Lineage:** Grown from XIIV-500M (single lineage: 133M → 500M → 1B)
-- **Training status:** GROWN, NOT TRAINED — grown initialization only
+- **Training status:** IN TRAINING — grown from the XIIV-500M checkpoint; block-wise training (SGBD) in progress. Blocks 0–4 of 8 complete (1,000 steps each, 622.5M parameters trained); blocks 5–7 pending. The assembled 1B has not yet been evaluated end to end.
 
 ### Architecture Spec
 
@@ -27,7 +27,9 @@ XIIV is built guarantee-native from the ground up:
 - Independent verification (not self-grading)
 - Intervention rate as the core metric
 
-This is the differentiator frontier labs haven't reached.
+Verification is performed by code independent of the model, and the
+intervention rate (verifier interventions per generation) is tracked as a
+primary quality metric.
 
 ## Growth Details
 
@@ -41,8 +43,9 @@ This is the differentiator frontier labs haven't reached.
 
 ## Intended Use
 
-**This checkpoint is NOT ready for use.** It requires training on real data
-(FineWeb-Edu) on GPU hardware before it can generate coherent text.
+**This checkpoint is a research artifact, not a production model.** Block
+training is still in progress (see Training status above), and the assembled
+1B has not been evaluated. It should not be used for downstream tasks.
 
 ## Training Requirements
 
@@ -52,13 +55,13 @@ This is the differentiator frontier labs haven't reached.
 - **LR:** 1.65e-4 (inverse-width scaled from 133M reference)
 - **Steps:** 8218 → 48218 (40k training steps)
 
-## Limitations (Honest)
+## Limitations
 
-- NOT trained — output will be incoherent until trained
-- NOT instruction-tuned — no chat/Q&A ability
-- NOT safety-aligned — no RLHF or safety training
-- 99M training tokens is small for 1B params (frontier models use 100B+)
-- This is a research artifact, not a production model
+- Training incomplete — blocks 5–7 untrained; assembled-model quality is unmeasured
+- Not instruction-tuned — no chat template; interaction is via contracts and prompts
+- Not safety-aligned — no RLHF or safety training has been applied
+- Training corpus is small relative to frontier practice for a 1B model
+- Context length is 128 tokens in the current configuration
 
 ## Lineage
 

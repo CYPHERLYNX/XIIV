@@ -15,10 +15,19 @@ constraints, verified before the response is returned.
 Run:
     .venv/bin/python -m xiiv.openai_server --weights weights_52m/xiiv-52m-fp16.safetensors --port 11434
 
+For the 1B model, pass --model-id explicitly so /v1/models reports
+the model actually being served (the default "xiiv-52m" belongs to
+the default 52M weights, not to any weights file):
+    .venv/bin/python -m xiiv.openai_server \
+        --weights checkpoints_1b_sgbd/xiiv_1b_sgbd.safetensors \
+        --tokenizer weights/tokenizer_32k.json \
+        --model-id xiiv-1b --port 11434
+
 OpenCode config (~/.config/opencode/opencode.json):
     {"provider": {"xiiv": {"npm": "@ai-sdk/openai-compatible",
       "options": {"baseURL": "http://localhost:11434/v1"}}},
      "model": "xiiv/xiiv-52m"}
+    (for the 1B package, use "model": "xiiv/xiiv-1b" to match --model-id)
 
 Stdlib only. Localhost only.
 """
@@ -41,6 +50,11 @@ MODEL_ID = "xiiv-52m"
 class Handler(BaseHTTPRequestHandler):
     model = None
     tok = None
+    # Reported by GET /v1/models and echoed as the default in chat
+    # completions. Defaults to MODEL_ID (the 52M weights); main() sets
+    # this from --model-id so a served 1B checkpoint is never reported
+    # under the 52M name.
+    model_id = MODEL_ID
     # When True, every generation forbids token ids >= parent_vocab_size.
     # Used for grown checkpoints whose expanded-vocabulary embeddings are
     # still untrained: the model then samples only from the trained parent
@@ -62,7 +76,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path.rstrip("/") == "/v1/models":
             return self._send(200, {"object": "list", "data": [{
-                "id": MODEL_ID, "object": "model",
+                "id": self.model_id, "object": "model",
                 "created": int(time.time()), "owned_by": "xiiv"}]})
         return self._send(404, {"error": "not found"})
 
@@ -140,7 +154,7 @@ class Handler(BaseHTTPRequestHandler):
             "id": f"chatcmpl-{uuid.uuid4().hex[:12]}",
             "object": "chat.completion",
             "created": int(time.time()),
-            "model": req.get("model", MODEL_ID),
+            "model": req.get("model", self.model_id),
             "choices": [{"index": 0,
                          "message": {"role": "assistant", "content": text},
                          "finish_reason": "stop"}],
@@ -157,6 +171,10 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--weights", default="weights_52m/xiiv-52m-fp16.safetensors")
     ap.add_argument("--tokenizer", default="weights_52m/tokenizer.json")
+    ap.add_argument("--model-id", default=None,
+                    help="model id reported by GET /v1/models "
+                         "(default: xiiv-52m, matching the default weights; "
+                         "pass xiiv-1b when serving a 1B checkpoint)")
     ap.add_argument("--port", type=int, default=11434)
     ap.add_argument("--threads", type=int, default=2)
     ap.add_argument("--parent-vocab-only", action="store_true",
@@ -167,8 +185,11 @@ def main():
     Handler.tok = XIIVTokenizer(args.tokenizer)
     Handler.model, _ = load_model(args.weights)
     Handler.parent_vocab_only = args.parent_vocab_only
+    if args.model_id:
+        Handler.model_id = args.model_id
     print(f"XIIV OpenAI-compatible API at http://127.0.0.1:{args.port}/v1 "
-          f"({Handler.model.count_parameters()/1e6:.1f}M params)")
+          f"({Handler.model.count_parameters()/1e6:.1f}M params, "
+          f"model={Handler.model_id})")
     ThreadingHTTPServer(("127.0.0.1", args.port), Handler).serve_forever()
 
 

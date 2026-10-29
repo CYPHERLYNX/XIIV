@@ -74,6 +74,30 @@ def load_model(weights_path: str, device="cpu"):
     return model, cfg
 
 
+def resolve_device(requested):
+    """Resolve a --device request to a concrete torch device string.
+
+    "cpu" -> "cpu". "cuda" -> "cuda", but LOUDLY refuse (SystemExit,
+    no fallback) when CUDA is unavailable, so a GPU run can never
+    silently degrade to CPU timing presented as GPU timing.
+    "auto" -> "cuda" when torch.cuda.is_available(), else "cpu".
+    Anything else is a caller error.
+    """
+    if requested == "cpu":
+        return "cpu"
+    if requested == "cuda":
+        if not torch.cuda.is_available():
+            raise SystemExit(
+                "ERROR: --device cuda requested but CUDA is unavailable "
+                "(torch.cuda.is_available() == False); refusing to fall "
+                "back to CPU")
+        return "cuda"
+    if requested == "auto":
+        return "cuda" if torch.cuda.is_available() else "cpu"
+    raise SystemExit(f"ERROR: unknown --device {requested!r} "
+                     "(expected cpu, cuda, or auto)")
+
+
 def cmd_generate(args, model, cfg, tok):
     from xiiv.diffusion import generate_with_scratchpad, self_refine
     prompt_ids = None
@@ -92,7 +116,7 @@ def cmd_generate(args, model, cfg, tok):
             model, args.length, tok.mask_id, tok.eos_id,
             scratch_len=args.scratchpad, steps=args.steps,
             temperature=args.temperature, top_p=args.top_p, seed=args.seed,
-            prompt_ids=prompt_ids, device="cpu")
+            prompt_ids=prompt_ids, device=args.device)
         scratch_txt = tok.decode(scratch.tolist())
     elif args.refine_rounds > 0:
         # Draft + self-correction: remask lowest-confidence spans,
@@ -101,13 +125,13 @@ def cmd_generate(args, model, cfg, tok):
             model, args.length, tok.mask_id, tok.eos_id, steps=args.steps,
             refine_rounds=args.refine_rounds, remask_frac=args.refine_frac,
             temperature=args.temperature, top_p=args.top_p, seed=args.seed,
-            prompt_ids=prompt_ids, device="cpu")
+            prompt_ids=prompt_ids, device=args.device)
     else:
         out = sample_trajectory(
             model, args.length, tok.mask_id, tok.eos_id, steps=args.steps,
             temperature=args.temperature, top_p=args.top_p, seed=args.seed,
             prompt_ids=prompt_ids, remask_ratio=args.remask,
-            return_trajectory=args.trajectory, device="cpu",
+            return_trajectory=args.trajectory, device=args.device,
             adaptive_decode=args.adaptive_decode,
             guarantee=_build_guarantee(args, tok))
         if args.trajectory:
@@ -125,7 +149,8 @@ def cmd_generate(args, model, cfg, tok):
             else f"refine x{args.refine_rounds}" if args.refine_rounds > 0
             else "generate")
     print(f"\n[xiiv] {mode}: {n_tok} tokens, {args.steps} denoise steps, "
-          f"{dt:.2f}s ({n_tok / max(dt, 1e-6):.1f} tok/s), seed={args.seed}",
+          f"{dt:.2f}s ({n_tok / max(dt, 1e-6):.1f} tok/s), seed={args.seed}, "
+          f"device={args.device}",
           file=sys.stderr)
     if args.trajectory:
         return text, traj, tok
@@ -146,7 +171,7 @@ def cmd_infill(args, model, cfg, tok):
         model, length, tok.mask_id, tok.eos_id, steps=args.steps,
         temperature=args.temperature, top_p=args.top_p, seed=args.seed,
         prompt_ids=ids, frozen=frozen, remask_ratio=args.remask,
-        device="cpu", adaptive_decode=args.adaptive_decode,
+        device=args.device, adaptive_decode=args.adaptive_decode,
         guarantee=_build_guarantee(args, tok))
     # re-apply frozen context exactly (safety: sampler never touches it,
     # but belt-and-braces for the demo)
@@ -155,7 +180,7 @@ def cmd_infill(args, model, cfg, tok):
     text = tok.decode(out_ids.tolist())
     print(text)
     print(f"\n[xiiv] infilled {int((~frozen).sum())} masked tokens in "
-          f"{dt:.2f}s, seed={args.seed}", file=sys.stderr)
+          f"{dt:.2f}s, seed={args.seed}, device={args.device}", file=sys.stderr)
     return text
 
 
@@ -164,9 +189,19 @@ def main():
                                  description="XIIV masked-diffusion LM")
     ap.add_argument("--weights", default="weights/xiiv.safetensors")
     ap.add_argument("--tokenizer", default="weights/tokenizer.json")
+    ap.add_argument("--device", default="auto", choices=["cpu", "cuda", "auto"],
+                    help="compute device (before the subcommand). "
+                         "auto (default): cuda if available, else cpu. "
+                         "cuda: fail loudly if CUDA is unavailable, "
+                         "never silently fall back to CPU.")
     sub = ap.add_subparsers(dest="cmd", required=True)
 
     g = sub.add_parser("generate", help="generate from noise (or a prompt)")
+    # SUPPRESS default so a --device given before the subcommand is not
+    # overwritten by the subparser default; only an explicit
+    # `generate --device ...` sets it here.
+    g.add_argument("--device", default=argparse.SUPPRESS,
+                   choices=["cpu", "cuda", "auto"])
     g.add_argument("--prompt", default="")
     g.add_argument("--length", type=int, default=128)
     g.add_argument("--steps", type=int, default=16)
@@ -197,6 +232,8 @@ def main():
 
     f = sub.add_parser("infill",
                        help="fill <mask> / <mask:N> spans, e.g. --text 'a <mask:5> sat'")
+    f.add_argument("--device", default=argparse.SUPPRESS,
+                   choices=["cpu", "cuda", "auto"])
     f.add_argument("--text", required=True)
     f.add_argument("--length", type=int, default=0,
                    help="pad total length with extra masks (0 = exact)")
@@ -237,8 +274,11 @@ def main():
             ap.error("--refine-frac must be in [0, 1]")
     if args.steps < 1:
         ap.error("--steps must be >= 1")
+    # Resolve once, before any file load: --device cuda on a CPU-only
+    # box exits here with a loud error instead of running on CPU.
+    args.device = resolve_device(args.device)
     tok = XIIVTokenizer(args.tokenizer)
-    model, cfg = load_model(args.weights)
+    model, cfg = load_model(args.weights, device=args.device)
     assert tok.mask_id == cfg.mask_id and tok.eos_id == cfg.eos_id, \
         "tokenizer/weights special-token mismatch"
     if tok.vocab_size != cfg.vocab_size:

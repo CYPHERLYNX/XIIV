@@ -127,17 +127,39 @@ def cmd_generate(args, model, cfg, tok):
             temperature=args.temperature, top_p=args.top_p, seed=args.seed,
             prompt_ids=prompt_ids, device=args.device)
     else:
-        out = sample_trajectory(
-            model, args.length, tok.mask_id, tok.eos_id, steps=args.steps,
-            temperature=args.temperature, top_p=args.top_p, seed=args.seed,
-            prompt_ids=prompt_ids, remask_ratio=args.remask,
-            return_trajectory=args.trajectory, device=args.device,
-            adaptive_decode=args.adaptive_decode,
-            guarantee=_build_guarantee(args, tok))
-        if args.trajectory:
-            ids, conf, traj = out
+        if args.dcmr:
+            # DCMR path: certificate-gated unmasking with decoupled
+            # regeneration. Prompt tokens are frozen (never remasked).
+            from .dcmr import DCMRConfig, dcmr_sample
+            frozen = {}
+            if prompt_ids is not None:
+                frozen = {i: int(t)
+                          for i, t in enumerate(prompt_ids.tolist())}
+            dev = next(model.parameters()).device
+            def _dcmr_model(x):
+                with torch.no_grad():
+                    return model(x.to(dev)).cpu()
+            ids, trace = dcmr_sample(
+                _dcmr_model, length=args.length, mask_id=tok.mask_id,
+                config=DCMRConfig(), seed=args.seed, frozen=frozen)
+            conf, traj = None, None
+            print(f"[xiiv] dcmr: commits={trace.commits} "
+                  f"gate_rejects={trace.gate_rejects} "
+                  f"remasks={trace.remasks} regen_passes={trace.regen_passes} "
+                  f"final_no_repeat={trace.final_no_repeat}",
+                  file=sys.stderr)
         else:
-            ids, conf = out
+            out = sample_trajectory(
+                model, args.length, tok.mask_id, tok.eos_id, steps=args.steps,
+                temperature=args.temperature, top_p=args.top_p, seed=args.seed,
+                prompt_ids=prompt_ids, remask_ratio=args.remask,
+                return_trajectory=args.trajectory, device=args.device,
+                adaptive_decode=args.adaptive_decode,
+                guarantee=_build_guarantee(args, tok))
+            if args.trajectory:
+                ids, conf, traj = out
+            else:
+                ids, conf = out
     dt = time.time() - t0
     if scratch_txt is not None:
         print(f"[scratchpad] {scratch_txt}\n")
@@ -229,6 +251,12 @@ def main():
                    help="GCDD: LAVE-style lookahead-then-verify — veto any "
                         "token commit that provably destroys JSON validity "
                         "or contract satisfiability (CPU-only, opt-in)")
+    g.add_argument("--dcmr", action="store_true",
+                   help="DCMR: decoupled certificate-margin remasking — "
+                        "certifies no repeated 4-gram in the output via a "
+                        "per-commit gate + decoupled regeneration passes "
+                        "(experimental: tested on scripted models only, "
+                        "not yet evaluated on a real checkpoint)")
 
     f = sub.add_parser("infill",
                        help="fill <mask> / <mask:N> spans, e.g. --text 'a <mask:5> sat'")
@@ -257,6 +285,12 @@ def main():
         ap.error("--guarantee-json is not wired into the --scratchpad / "
                  "--refine-rounds paths yet; use it with plain generate "
                  "or infill")
+    if (args.dcmr and args.cmd == "generate"
+            and (args.scratchpad > 0 or args.refine_rounds > 0
+                 or args.trajectory)):
+        ap.error("--dcmr is not wired into the --scratchpad / "
+                 "--refine-rounds / --trajectory paths yet; use it with "
+                 "plain generate")
     # generate needs a positive canvas; infill allows --length 0 (= exact,
     # no padding — the canvas comes from the masked text itself).
     if args.cmd == "generate" and args.length < 1:

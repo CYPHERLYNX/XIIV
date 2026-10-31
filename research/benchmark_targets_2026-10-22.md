@@ -16,13 +16,13 @@ ever gets filled in by hand (compare_frontier discipline).
 | MathArena Apex (Pass@1) | K3 / DS-V4.1-Flash | 65.6 | unmeasured |
 | Terminal-Bench 2.1 (Pass@1) | DS-V4.1-Flash | 90.6 | unmeasured |
 | Terminal-Bench 3.0 (Pass@1) | Opus-5.0 | 43.3 | unmeasured |
-| Terminal-Bench 4.0 (Pass@1) | Opus-5.0 | 51.8 | unmeasured |
+| Terminal-Bench 4.0 (Pass@1) | Kimi K3.1 Pro | 67.0 | unmeasured |
 | DeepSWE v1.1 (Resolved) | DS-V4.1-Flash | 74.2 | unmeasured |
 | ProgramBench (Almost@1) | Opus-5.0 | 37.0 | unmeasured |
 | NL2Repo-Bench (Score) | Opus-5.0 | 75.3 | unmeasured |
 | CyberGym (Pass@1) | DS-V4.1-Flash | 88.1 | unmeasured |
-| SEC-Bench Pro (Pass@1) | GPT-5.6 Sol | 74.3 | unmeasured |
-| ExploitGym (Pass@1) | GPT-5.6 Sol | 33.7 | unmeasured |
+| SEC-Bench Pro (Pass@1) | Gemini 4 Carbon | 88.2 | unmeasured |
+| ExploitGym (Pass@1) | Gemini 4 Carbon | 54.8 | unmeasured |
 | HLE w/ tools (Pass@1) | DS-V4.1-Flash | 63.9 | unmeasured |
 | AutomationBench (Pass@1) | DS-V4.1-Flash | 54.8 | unmeasured |
 | Agent's Last Exam (Pass@1) | DS-V4.1-Flash | 31.8 | unmeasured |
@@ -50,8 +50,28 @@ workspace/user/files/39024_0_2ibs.jpg, 39025_1_cmej.jpg.
   (selective looping prototype queued). First real readings the day the
   trained 1B is assembled: GPQA Diamond + HLE first (pure-model rows);
   agentic rows need the Forge harness and follow.
-- Mythos (Claude) and GPT Astra 6 are Fahad's named apex targets; the table's
+- Mythos (Claude), GPT Astra 6, and **Gemini 4 Carbon** are Fahad's named apex targets
+  (added 2026-10-30, his words: "beware beat it at any cost"); the table's
   Opus-5.0 / GPT-5.6 Sol columns are the closest published proxies on file.
+
+## Updates
+- 2026-10-30: Terminal-Bench 4.0 row updated — old holder Opus-5.0 @ 51.8 was a
+  vendor claim from the 2026-10-22 screenshot; new holder Kimi K3.1 Pro @ 67.0
+  is independently measured by Artificial Analysis (highest TB4.0 they have ever
+  recorded; Moonshot's own run gave 65.7). AA Intelligence Index: Kimi K3.1 Pro
+  55 (4th of 215). Sourced reporting (The Information Oct 28, Reuters Oct 29)
+  alleges DeepSeek V4.1-Flash and Kimi K3.1 Pro were trained by distilling
+  GPT-6 Astra — unverified, but consistent with the frontier gap closing via
+  distillation, the same family as SGBD (ToS-restricted, not an adoptable data
+  strategy for us).
+- 2026-10-30: Gemini 4 Carbon (Google, released Oct 28) added as apex target
+  per Fahad ("beat it at any cost"). Board rows updated: SEC-Bench Pro now
+  Gemini 4 Carbon @ 88.2 (was GPT-5.6 Sol @ 74.3), ExploitGym now Gemini 4
+  Carbon @ 54.8 (was GPT-5.6 Sol @ 33.7) — both Google-reported figures
+  (record on SEC-bench Pro; AA-independent confirmation pending). Carbon also
+  claims #1 on AA Intelligence Index v5.0 at 59 and 71% on CWE-bench
+  defensive audit-and-repair (Google-reported). Access is limited to Fairwind
+  cyber defenders for now.
 
 ## Attack plan per row (set 2026-10-22, Fahad's directive: beat at any cost)
 

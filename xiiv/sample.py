@@ -110,6 +110,7 @@ def cmd_generate(args, model, cfg, tok):
         prompt_ids = torch.tensor(tok.encode(args.prompt), dtype=torch.long)
     t0 = time.time()
     scratch_txt, traj = None, None
+    used_cgec = False
     if args.scratchpad > 0:
         # Two-phase reasoning: scratchpad first, answer conditioned on it.
         ids, conf, scratch = generate_with_scratchpad(
@@ -149,17 +150,63 @@ def cmd_generate(args, model, cfg, tok):
                   f"final_no_repeat={trace.final_no_repeat}",
                   file=sys.stderr)
         else:
-            out = sample_trajectory(
-                model, args.length, tok.mask_id, tok.eos_id, steps=args.steps,
-                temperature=args.temperature, top_p=args.top_p, seed=args.seed,
-                prompt_ids=prompt_ids, remask_ratio=args.remask,
-                return_trajectory=args.trajectory, device=args.device,
-                adaptive_decode=args.adaptive_decode,
-                guarantee=_build_guarantee(args, tok))
-            if args.trajectory:
-                ids, conf, traj = out
+            if args.cgec:
+                # CGEC path: certificate-guided early commit over the
+                # arith-v1 domain (arithmetic expressions). Emits a
+                # machine-checkable certificate per generation, replayable
+                # by xiiv/cert_verify.py without model weights.
+                from .cgec import (CGECConfig, arithmetic_alphabet_32k,
+                                   cgec_sample)
+                alphabet = arithmetic_alphabet_32k()
+                frozen = {}
+                if prompt_ids is not None:
+                    toks = prompt_ids.tolist()
+                    bad = [t for t in toks if t not in alphabet]
+                    if bad:
+                        raise ValueError(
+                            "--cgec certifies arithmetic expressions only: "
+                            f"prompt contains {len(bad)} non-domain token(s) "
+                            f"(e.g. id {bad[0]}); use plain generate for "
+                            "free text")
+                    frozen = {i: int(t) for i, t in enumerate(toks)}
+                dev = next(model.parameters()).device
+
+                def _cgec_model(x):
+                    with torch.no_grad():
+                        return model(x.to(dev)).cpu()
+                ids, trace, cert = cgec_sample(
+                    _cgec_model, length=args.length, mask_id=tok.mask_id,
+                    alphabet=alphabet, config=CGECConfig(), seed=args.seed,
+                    frozen=frozen)
+                conf, traj = None, None
+                used_cgec = True
+                print(f"[xiiv] cgec: commits={trace.commits} "
+                      f"early_commits={trace.early_commits} "
+                      f"gate_rejects={trace.gate_rejects} "
+                      f"defers={trace.defers} "
+                      f"forward_passes={trace.forward_passes} "
+                      f"min_gap={trace.min_gap} "
+                      f"grammar_valid={trace.grammar_valid} "
+                      f"completed={trace.completed}",
+                      file=sys.stderr)
+                if trace.completed:
+                    import json as _json
+                    print("[xiiv] cgec certificate: " + _json.dumps(
+                        {k: cert[k] for k in
+                         ("domain", "min_gap", "n_commits", "early_commits",
+                          "gate_rejects")}), file=sys.stderr)
             else:
-                ids, conf = out
+                out = sample_trajectory(
+                    model, args.length, tok.mask_id, tok.eos_id, steps=args.steps,
+                    temperature=args.temperature, top_p=args.top_p, seed=args.seed,
+                    prompt_ids=prompt_ids, remask_ratio=args.remask,
+                    return_trajectory=args.trajectory, device=args.device,
+                    adaptive_decode=args.adaptive_decode,
+                    guarantee=_build_guarantee(args, tok))
+                if args.trajectory:
+                    ids, conf, traj = out
+                else:
+                    ids, conf = out
     dt = time.time() - t0
     if scratch_txt is not None:
         print(f"[scratchpad] {scratch_txt}\n")
@@ -169,6 +216,7 @@ def cmd_generate(args, model, cfg, tok):
     n_tok = int((ids != tok.mask_id).sum())
     mode = ("scratchpad+answer" if scratch_txt is not None
             else f"refine x{args.refine_rounds}" if args.refine_rounds > 0
+            else "cgec" if used_cgec
             else "generate")
     print(f"\n[xiiv] {mode}: {n_tok} tokens, {args.steps} denoise steps, "
           f"{dt:.2f}s ({n_tok / max(dt, 1e-6):.1f} tok/s), seed={args.seed}, "
@@ -257,6 +305,14 @@ def main():
                         "per-commit gate + decoupled regeneration passes "
                         "(experimental: tested on scripted models only, "
                         "not yet evaluated on a real checkpoint)")
+    g.add_argument("--cgec", action="store_true",
+                   help="CGEC: certificate-guided early commit — block-wise "
+                        "diffusion decoding with a grammar gate "
+                        "(arith-v1: arithmetic expressions) + "
+                        "confidence-gap all-in fill, emitting a "
+                        "machine-checkable certificate per generation "
+                        "(experimental: tested on scripted models only, "
+                        "not yet evaluated on a real checkpoint)")
 
     f = sub.add_parser("infill",
                        help="fill <mask> / <mask:N> spans, e.g. --text 'a <mask:5> sat'")
@@ -291,6 +347,14 @@ def main():
         ap.error("--dcmr is not wired into the --scratchpad / "
                  "--refine-rounds / --trajectory paths yet; use it with "
                  "plain generate")
+    if (args.cgec and args.cmd == "generate"
+            and (args.scratchpad > 0 or args.refine_rounds > 0
+                 or args.trajectory)):
+        ap.error("--cgec is not wired into the --scratchpad / "
+                 "--refine-rounds / --trajectory paths yet; use it with "
+                 "plain generate")
+    if args.dcmr and args.cgec:
+        ap.error("--dcmr and --cgec are alternative samplers; pick one")
     # generate needs a positive canvas; infill allows --length 0 (= exact,
     # no padding — the canvas comes from the masked text itself).
     if args.cmd == "generate" and args.length < 1:

@@ -40,8 +40,8 @@ The 1B model was not initialised at full size. It descends from a single trained
 
 | Component | Specification |
 |---|---|
-| Parameters | 1B (915,988,480 unique) |
-| Layers | 36 |
+| Parameters | 1B (1,000,000,000 headline; 857,429,760 runnable) |
+| Layers | 40 (36 dense + 4 grown) |
 | Hidden dimension | 1,280 |
 | Attention heads | 20 |
 | Attention | Bidirectional, full, RoPE |
@@ -92,9 +92,8 @@ Training proceeds in two parts:
 |---|---|
 | 133M teacher | Trained |
 | 500M | Grown from 133M |
-| 1B blocks 0–4 | Trained — 1,000 steps each (622.5M parameters) |
-| 1B blocks 5–7 | Pending |
-| Assembled 1B | Evaluation follows completion of block training |
+| 1B blocks 0–7 | Trained — 1,000 steps each (final losses: block 5, 52.7; block 6, 78.8; block 7, 47.2) |
+| Assembled 1B | Not yet evaluated — stitch script (`scripts/stitch_1b_sgbd.py`) ready; supervised daytime run pending |
 
 Runbook: [docs/HEAVY_TRAINING_RUNBOOK.md](docs/HEAVY_TRAINING_RUNBOOK.md) · Data: [docs/DATASET_CARD.md](docs/DATASET_CARD.md)
 

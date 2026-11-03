@@ -111,6 +111,8 @@ def cmd_generate(args, model, cfg, tok):
     t0 = time.time()
     scratch_txt, traj = None, None
     used_cgec = False
+    used_cdr = False
+    used_ptcs = False
     if args.scratchpad > 0:
         # Two-phase reasoning: scratchpad first, answer conditioned on it.
         ids, conf, scratch = generate_with_scratchpad(
@@ -149,6 +151,77 @@ def cmd_generate(args, model, cfg, tok):
                   f"remasks={trace.remasks} regen_passes={trace.regen_passes} "
                   f"final_no_repeat={trace.final_no_repeat}",
                   file=sys.stderr)
+        elif args.cdr:
+            # CDR path: certificate-drift remasking -- vanilla commits,
+            # then every check cycle re-verifies the proof margin
+            # (commit-time vs current) and remasks decayed positions.
+            # Emits a cdr-v1 certificate per generation.
+            from .cdr import CDRConfig, cdr_sample
+            frozen = {}
+            if prompt_ids is not None:
+                frozen = {i: int(t)
+                          for i, t in enumerate(prompt_ids.tolist())}
+            dev = next(model.parameters()).device
+
+            def _cdr_model(x):
+                with torch.no_grad():
+                    return model(x.to(dev)).cpu()
+            ids, trace, cert = cdr_sample(
+                _cdr_model, length=args.length, mask_id=tok.mask_id,
+                config=CDRConfig(), seed=args.seed, frozen=frozen)
+            conf, traj = None, None
+            used_cdr = True
+            print(f"[xiiv] cdr: commits={trace.commits} "
+                  f"drift_remasks={trace.drift_remasks} "
+                  f"stillborn_remasks={trace.stillborn_remasks} "
+                  f"regen_passes={trace.regen_passes} "
+                  f"probe_passes={trace.probe_passes} "
+                  f"forward_passes={trace.forward_passes} "
+                  f"final_no_repeat={trace.final_no_repeat} "
+                  f"completed={trace.completed}",
+                  file=sys.stderr)
+            if trace.completed:
+                import json as _json
+                print("[xiiv] cdr certificate: " + _json.dumps(
+                    {k: cert[k] for k in
+                     ("signal", "n_drift_remasks", "n_stillborn_remasks",
+                      "check_cycles", "final_no_repeat")}),
+                    file=sys.stderr)
+        elif args.ptcs:
+            # PTCS path: planned-trajectory certificate scheduler --
+            # global budget planner + calibrated informativeness +
+            # verifier-side settling + pre-commit certificate gate.
+            # Emits a ptcs-v1 certificate per generation.
+            from .ptcs import PTCSConfig, ptcs_sample
+            frozen = {}
+            if prompt_ids is not None:
+                frozen = {i: int(t)
+                          for i, t in enumerate(prompt_ids.tolist())}
+            dev = next(model.parameters()).device
+
+            def _ptcs_model(x):
+                with torch.no_grad():
+                    return model(x.to(dev)).cpu()
+            ids, trace, cert = ptcs_sample(
+                _ptcs_model, length=args.length, mask_id=tok.mask_id,
+                config=PTCSConfig(), seed=args.seed, frozen=frozen)
+            conf, traj = None, None
+            used_ptcs = True
+            print(f"[xiiv] ptcs: commits={trace.commits} "
+                  f"settles={trace.settles} unsets={trace.unsets} "
+                  f"gate_rejects={trace.gate_rejects} "
+                  f"est_query_skips={trace.est_query_skips} "
+                  f"forward_passes={trace.forward_passes} "
+                  f"final_no_repeat={trace.final_no_repeat} "
+                  f"completed={trace.completed}",
+                  file=sys.stderr)
+            if trace.completed:
+                import json as _json
+                print("[xiiv] ptcs certificate: " + _json.dumps(
+                    {k: cert[k] for k in
+                     ("n_settles", "n_unsets", "n_gate_rejects",
+                      "est_query_skips", "final_no_repeat")}),
+                    file=sys.stderr)
         else:
             if args.cgec:
                 # CGEC path: certificate-guided early commit over the
@@ -216,6 +289,8 @@ def cmd_generate(args, model, cfg, tok):
     n_tok = int((ids != tok.mask_id).sum())
     mode = ("scratchpad+answer" if scratch_txt is not None
             else f"refine x{args.refine_rounds}" if args.refine_rounds > 0
+            else "cdr" if used_cdr
+            else "ptcs" if used_ptcs
             else "cgec" if used_cgec
             else "generate")
     print(f"\n[xiiv] {mode}: {n_tok} tokens, {args.steps} denoise steps, "
@@ -313,6 +388,27 @@ def main():
                         "machine-checkable certificate per generation "
                         "(experimental: tested on scripted models only, "
                         "not yet evaluated on a real checkpoint)")
+    g.add_argument("--cdr", action="store_true",
+                   help="CDR: certificate-drift remasking — vanilla "
+                        "confidence commits, then every check cycle "
+                        "re-verifies the independent proof margin "
+                        "commit-time vs current and remasks decayed "
+                        "positions; repairs what confidently-wrong models "
+                        "hide from confidence remasking, emitting a "
+                        "cdr-v1 certificate per generation "
+                        "(experimental: tested on scripted models only, "
+                        "not yet evaluated on a real checkpoint)")
+    g.add_argument("--ptcs", action="store_true",
+                   help="PTCS: planned-trajectory certificate scheduler — "
+                        "plans the unmasking trajectory (how many positions "
+                        "per step, in what order) from calibrated "
+                        "informativeness, settles positions whose "
+                        "independent-verifier margin stabilizes "
+                        "(SureLock-style compute saving), and gates every "
+                        "commit on the no-repeat certificate, emitting a "
+                        "ptcs-v1 certificate per generation "
+                        "(experimental: tested on scripted models only, "
+                        "not yet evaluated on a real checkpoint)")
 
     f = sub.add_parser("infill",
                        help="fill <mask> / <mask:N> spans, e.g. --text 'a <mask:5> sat'")
@@ -353,8 +449,22 @@ def main():
         ap.error("--cgec is not wired into the --scratchpad / "
                  "--refine-rounds / --trajectory paths yet; use it with "
                  "plain generate")
-    if args.dcmr and args.cgec:
-        ap.error("--dcmr and --cgec are alternative samplers; pick one")
+    if (args.cdr and args.cmd == "generate"
+            and (args.scratchpad > 0 or args.refine_rounds > 0
+                 or args.trajectory)):
+        ap.error("--cdr is not wired into the --scratchpad / "
+                 "--refine-rounds / --trajectory paths yet; use it with "
+                 "plain generate")
+    if (args.ptcs and args.cmd == "generate"
+            and (args.scratchpad > 0 or args.refine_rounds > 0
+                 or args.trajectory)):
+        ap.error("--ptcs is not wired into the --scratchpad / "
+                 "--refine-rounds / --trajectory paths yet; use it with "
+                 "plain generate")
+    if sum([bool(args.dcmr), bool(args.cgec), bool(args.cdr),
+            bool(args.ptcs)]) > 1:
+        ap.error("--dcmr, --cgec, --cdr and --ptcs are alternative "
+                 "samplers; pick one")
     # generate needs a positive canvas; infill allows --length 0 (= exact,
     # no padding — the canvas comes from the masked text itself).
     if args.cmd == "generate" and args.length < 1:

@@ -342,9 +342,17 @@ def main():
 
     prompts = load_prompts()
     if args.dry_run:
-        # Token lengths need only the tokenizer, not the model.
-        from xiiv.tokenizer import XIIVTokenizer
-        tok = XIIVTokenizer(args.tokenizer)
+        # Token lengths need only the tokenizer, not the model. The
+        # tokenizer module is torch-free, but `from xiiv.tokenizer import`
+        # executes xiiv/__init__.py, which imports torch — absent on the
+        # RAM-constrained dev box. Load by file path instead (same
+        # pattern as load_adapter); behavior is identical.
+        tok_path = os.path.join(HERE, os.pardir, "xiiv", "tokenizer.py")
+        tok_spec = importlib.util.spec_from_file_location(
+            "xiiv_tokenizer_standalone", os.path.abspath(tok_path))
+        tok_mod = importlib.util.module_from_spec(tok_spec)
+        tok_spec.loader.exec_module(tok_mod)
+        tok = tok_mod.XIIVTokenizer(args.tokenizer)
         over = [(p["id"], len(tok.encode(p["prompt"])))
                 for p in prompts
                 if len(tok.encode(p["prompt"])) > MAX_PROMPT_TOKENS]

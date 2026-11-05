@@ -113,6 +113,8 @@ def cmd_generate(args, model, cfg, tok):
     used_cgec = False
     used_cdr = False
     used_ptcs = False
+    used_scv = False
+    used_cbrs = False
     if args.scratchpad > 0:
         # Two-phase reasoning: scratchpad first, answer conditioned on it.
         ids, conf, scratch = generate_with_scratchpad(
@@ -222,6 +224,84 @@ def cmd_generate(args, model, cfg, tok):
                      ("n_settles", "n_unsets", "n_gate_rejects",
                       "est_query_skips", "final_no_repeat")}),
                     file=sys.stderr)
+        elif args.scv:
+            # SCV path: speculative certificate verification -- one
+            # forward pass per round drafts top-k candidates per frontier
+            # position; the INDEPENDENT certificate verifier arbitrates
+            # the speculation and commits the longest certificate-clean
+            # prefix (verifier-decided batch size, no fixed budget).
+            # Emits a scv-v1 certificate per generation.
+            from .scv import SCVConfig, scv_sample
+            frozen = {}
+            if prompt_ids is not None:
+                frozen = {i: int(t)
+                          for i, t in enumerate(prompt_ids.tolist())}
+            dev = next(model.parameters()).device
+
+            def _scv_model(x):
+                with torch.no_grad():
+                    return model(x.to(dev)).cpu()
+            ids, trace, cert = scv_sample(
+                _scv_model, length=args.length, mask_id=tok.mask_id,
+                config=SCVConfig(), seed=args.seed, frozen=frozen)
+            conf, traj = None, None
+            used_scv = True
+            print(f"[xiiv] scv: accepts={trace.accepts} "
+                  f"rejects={trace.rejects} tail_stops={trace.tail_stops} "
+                  f"forward_passes={trace.forward_passes} "
+                  f"final_no_repeat={trace.final_no_repeat} "
+                  f"completed={trace.completed}",
+                  file=sys.stderr)
+            if trace.completed:
+                import json as _json
+                print("[xiiv] scv certificate: " + _json.dumps(
+                    {k: cert[k] for k in
+                     ("n_accepts", "n_rejects", "n_tail_stops",
+                      "forward_passes", "final_no_repeat")}),
+                    file=sys.stderr)
+        elif args.cbrs:
+            # CBRS path: certificate-backed repair scheduling -- fast
+            # UNVERIFIED draft (frontier top-1 commits, no certificate
+            # claim), then verifier-localized repair: the INDEPENDENT
+            # verifier finds every fault window, the fault envelope
+            # (windows + halo, frozen excluded) is remasked while the
+            # rest of the draft stays frozen, and repair rounds resample
+            # the envelope with verifier-gated candidates. The cbrs-v1
+            # certificate is a claim about the FINAL canvas only.
+            from .cbrs import CBRSConfig, cbrs_sample
+            frozen = {}
+            if prompt_ids is not None:
+                frozen = {i: int(t)
+                          for i, t in enumerate(prompt_ids.tolist())}
+            dev = next(model.parameters()).device
+
+            def _cbrs_model(x):
+                with torch.no_grad():
+                    return model(x.to(dev)).cpu()
+            ids, trace, cert = cbrs_sample(
+                _cbrs_model, length=args.length, mask_id=tok.mask_id,
+                config=CBRSConfig(), seed=args.seed, frozen=frozen)
+            conf, traj = None, None
+            used_cbrs = True
+            print(f"[xiiv] cbrs: draft_commits={trace.draft_commits} "
+                  f"fault_windows_draft={trace.n_fault_windows_draft} "
+                  f"repair_passes={trace.repair_rounds} "
+                  f"positions_repaired={trace.n_positions_repaired} "
+                  f"rejects={trace.rejects} "
+                  f"locality={trace.locality:.2f} "
+                  f"forward_passes={trace.forward_passes} "
+                  f"final_no_repeat={trace.final_no_repeat} "
+                  f"completed={trace.completed}",
+                  file=sys.stderr)
+            if trace.completed:
+                import json as _json
+                print("[xiiv] cbrs certificate: " + _json.dumps(
+                    {k: cert[k] for k in
+                     ("draft_passes", "repair_passes",
+                      "n_fault_windows_draft", "n_positions_repaired",
+                      "n_rejects", "locality",
+                      "forward_passes", "final_no_repeat")}),
+                    file=sys.stderr)
         else:
             if args.cgec:
                 # CGEC path: certificate-guided early commit over the
@@ -291,6 +371,8 @@ def cmd_generate(args, model, cfg, tok):
             else f"refine x{args.refine_rounds}" if args.refine_rounds > 0
             else "cdr" if used_cdr
             else "ptcs" if used_ptcs
+            else "scv" if used_scv
+            else "cbrs" if used_cbrs
             else "cgec" if used_cgec
             else "generate")
     print(f"\n[xiiv] {mode}: {n_tok} tokens, {args.steps} denoise steps, "
@@ -407,6 +489,28 @@ def main():
                         "(SureLock-style compute saving), and gates every "
                         "commit on the no-repeat certificate, emitting a "
                         "ptcs-v1 certificate per generation "
+                        "(experimental: tested on scripted models only, "
+                        "not yet evaluated on a real checkpoint)")
+    g.add_argument("--scv", action="store_true",
+                   help="SCV: speculative certificate verification — "
+                        "draft top-k candidates per frontier position in "
+                        "one forward pass, then let the INDEPENDENT "
+                        "certificate verifier arbitrate: commit the "
+                        "longest certificate-clean prefix (verifier-"
+                        "decided batch size, no fixed budget), emitting "
+                        "a scv-v1 certificate per generation "
+                        "(experimental: tested on scripted models only, "
+                        "not yet evaluated on a real checkpoint)")
+    g.add_argument("--cbrs", action="store_true",
+                   help="CBRS: certificate-backed repair scheduling — "
+                        "fast UNVERIFIED draft (frontier top-1 commits), "
+                        "then verifier-localized repair: the independent "
+                        "verifier finds every fault window, the fault "
+                        "envelope (windows + halo) is remasked while the "
+                        "rest of the draft stays frozen, and repair "
+                        "rounds resample the envelope with verifier-"
+                        "gated candidates; emits a cbrs-v1 certificate "
+                        "about the FINAL canvas only "
                         "(experimental: tested on scripted models only, "
                         "not yet evaluated on a real checkpoint)")
 

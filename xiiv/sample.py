@@ -115,6 +115,8 @@ def cmd_generate(args, model, cfg, tok):
     used_ptcs = False
     used_scv = False
     used_cbrs = False
+    used_ccca = False
+    used_cwtc = False
     if args.scratchpad > 0:
         # Two-phase reasoning: scratchpad first, answer conditioned on it.
         ids, conf, scratch = generate_with_scratchpad(
@@ -302,6 +304,88 @@ def cmd_generate(args, model, cfg, tok):
                       "n_rejects", "locality",
                       "forward_passes", "final_no_repeat")}),
                     file=sys.stderr)
+        elif args.ccca:
+            # CCCA path: cross-chain consensus arbitration -- K parallel
+            # chains denoise with different reveal orders; a position
+            # reaches the shared canvas only when >= quorum chains agree
+            # on the token AND the independent verifier accepts it.
+            # Disputed positions are rolled back and re-proposed; lone
+            # proposals promote after the confirm window as explicitly
+            # non-consensus commits. Emits a ccca-v1 certificate.
+            from .ccca import CCCAConfig, ccca_sample
+            frozen = {}
+            if prompt_ids is not None:
+                frozen = {i: int(t)
+                          for i, t in enumerate(prompt_ids.tolist())}
+            dev = next(model.parameters()).device
+
+            def _ccca_model(x):
+                with torch.no_grad():
+                    return model(x.to(dev)).cpu()
+            ids, trace, cert = ccca_sample(
+                _ccca_model, length=args.length, mask_id=tok.mask_id,
+                config=CCCAConfig(), seed=args.seed, frozen=frozen)
+            conf, traj = None, None
+            used_ccca = True
+            print(f"[xiiv] ccca: commits={trace.commits} "
+                  f"consensus={trace.consensus_commits} "
+                  f"nonconsensus={trace.nonconsensus_commits} "
+                  f"disagreements={trace.disagreements} "
+                  f"rollbacks={trace.rollbacks} "
+                  f"rounds={trace.rounds} "
+                  f"forward_passes={trace.forward_passes} "
+                  f"final_no_repeat={trace.final_no_repeat} "
+                  f"completed={trace.completed}",
+                  file=sys.stderr)
+            if trace.completed:
+                import json as _json
+                print("[xiiv] ccca certificate: " + _json.dumps(
+                    {k: cert[k] for k in
+                     ("consensus_rate", "n_consensus_commits",
+                      "n_nonconsensus_commits", "nonconsensus_positions",
+                      "n_disagreements", "n_rollbacks",
+                      "forward_passes", "final_no_repeat")}),
+                    file=sys.stderr)
+        elif args.cwtc:
+            # CWTC path: certificate-weighted trace credit -- a
+            # per-position credit ledger. The leading certificate-safe
+            # candidate earns credit equal to its probability each step;
+            # a position commits on confidence OR on accumulated credit
+            # (a token repeatedly endorsed safely across steps). No
+            # logits are ever modified or fused. Emits a cwtc-v1
+            # certificate.
+            from .cwtc import CWTCConfig, cwtc_sample
+            frozen = {}
+            if prompt_ids is not None:
+                frozen = {i: int(t)
+                          for i, t in enumerate(prompt_ids.tolist())}
+            dev = next(model.parameters()).device
+
+            def _cwtc_model(x):
+                with torch.no_grad():
+                    return model(x.to(dev)).cpu()
+            ids, trace, cert = cwtc_sample(
+                _cwtc_model, length=args.length, mask_id=tok.mask_id,
+                config=CWTCConfig(), frozen=frozen)
+            conf, traj = None, None
+            used_cwtc = True
+            print(f"[xiiv] cwtc: commits={trace.commits} "
+                  f"confidence={trace.confidence_commits} "
+                  f"credit_driven={trace.credit_driven_commits} "
+                  f"gate_rejects={trace.gate_rejects} "
+                  f"steps={trace.steps} "
+                  f"forward_passes={trace.forward_passes} "
+                  f"final_no_repeat={trace.final_no_repeat} "
+                  f"completed={trace.completed}",
+                  file=sys.stderr)
+            if trace.completed:
+                import json as _json
+                print("[xiiv] cwtc certificate: " + _json.dumps(
+                    {k: cert[k] for k in
+                     ("confidence_commits", "credit_driven_commits",
+                      "gate_rejects", "forward_passes",
+                      "final_no_repeat")}),
+                    file=sys.stderr)
         else:
             if args.cgec:
                 # CGEC path: certificate-guided early commit over the
@@ -373,6 +457,8 @@ def cmd_generate(args, model, cfg, tok):
             else "ptcs" if used_ptcs
             else "scv" if used_scv
             else "cbrs" if used_cbrs
+            else "ccca" if used_ccca
+            else "cwtc" if used_cwtc
             else "cgec" if used_cgec
             else "generate")
     print(f"\n[xiiv] {mode}: {n_tok} tokens, {args.steps} denoise steps, "
@@ -511,6 +597,31 @@ def main():
                         "rounds resample the envelope with verifier-"
                         "gated candidates; emits a cbrs-v1 certificate "
                         "about the FINAL canvas only "
+                        "(experimental: tested on scripted models only, "
+                        "not yet evaluated on a real checkpoint)")
+    g.add_argument("--ccca", action="store_true",
+                   help="CCCA: cross-chain consensus arbitration — "
+                        "K parallel chains denoise with different reveal "
+                        "orders (confidence / left-to-right / right-to-"
+                        "left); a position reaches the shared canvas only "
+                        "when >= quorum chains agree AND the independent "
+                        "verifier accepts it; disputed positions roll back "
+                        "and re-propose, lone proposals promote after the "
+                        "confirm window as explicitly non-consensus commits; "
+                        "emits a ccca-v1 certificate "
+                        "(experimental: tested on scripted models only, "
+                        "not yet evaluated on a real checkpoint)")
+    g.add_argument("--cwtc", action="store_true",
+                   help="CWTC: certificate-weighted trace credit — "
+                        "a per-position credit ledger: the leading "
+                        "certificate-safe candidate earns credit equal to "
+                        "its probability each step (gate failures earn "
+                        "zero), and a position commits on confidence OR "
+                        "on accumulated credit, so a token repeatedly "
+                        "endorsed safely across steps can commit while "
+                        "still below the confidence threshold; credit "
+                        "decays, so stale endorsement never commits; "
+                        "emits a cwtc-v1 certificate "
                         "(experimental: tested on scripted models only, "
                         "not yet evaluated on a real checkpoint)")
 

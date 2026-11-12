@@ -109,10 +109,13 @@ def main():
     dry = "--dry-run" in sys.argv
     update_milestones()
 
-    if pgrep_count("archive_to_hf\\.py") > 0:
+    # Anchored to a real python invocation: an unanchored `pgrep -f` also matches
+    # wrapper shells whose cmdline merely mentions the script name (observed
+    # 2026-11-09: a monitor run's own shell falsely tripped the archive check).
+    if pgrep_count("^[^ ]*python[0-9.]* .*archive_to_hf\\.py") > 0:
         log("SKIP: HF archive upload is running (holds RAM); will train after it finishes")
         return 0
-    if pgrep_count("sgbd_train_block\\.py") > 0:
+    if pgrep_count("^[^ ]*python[0-9.]* .*sgbd_train_block\\.py") > 0:
         log("SKIP: a block training run is already in progress")
         return 0
 

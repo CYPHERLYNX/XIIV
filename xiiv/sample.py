@@ -117,6 +117,11 @@ def cmd_generate(args, model, cfg, tok):
     used_cbrs = False
     used_ccca = False
     used_cwtc = False
+    used_csbr = False
+    used_cgbs = False
+    used_cvel = False
+    used_cvab = False
+    used_cvou = False
     if args.scratchpad > 0:
         # Two-phase reasoning: scratchpad first, answer conditioned on it.
         ids, conf, scratch = generate_with_scratchpad(
@@ -386,6 +391,211 @@ def cmd_generate(args, model, cfg, tok):
                       "gate_rejects", "forward_passes",
                       "final_no_repeat")}),
                     file=sys.stderr)
+        elif args.csbr:
+            # CSBR path: certificate-snapshot backtracking rollback --
+            # snapshots are taken only at certificate-clean states; a
+            # stall (no commits for stall_window steps) rolls back to
+            # the most recent snapshot, taboos the (position, token)
+            # pairs that led into the stall, and re-masks the
+            # lowest-margin committed positions for re-decision. Taboo
+            # only ever grows, so a rollback can never replay the
+            # trajectory that stalled. Emits a csbr-v1 certificate.
+            from .csbr import CSBRConfig, csbr_sample
+            frozen = {}
+            if prompt_ids is not None:
+                frozen = {i: int(t)
+                          for i, t in enumerate(prompt_ids.tolist())}
+            dev = next(model.parameters()).device
+
+            def _csbr_model(x):
+                with torch.no_grad():
+                    return model(x.to(dev)).cpu()
+            ids, trace, cert = csbr_sample(
+                _csbr_model, length=args.length, mask_id=tok.mask_id,
+                config=CSBRConfig(), frozen=frozen)
+            conf, traj = None, None
+            used_csbr = True
+            print(f"[xiiv] csbr: commits={trace.commits} "
+                  f"rollbacks={trace.rollbacks} "
+                  f"gate_rejects={trace.gate_rejects} "
+                  f"snapshots={trace.snapshots_taken} "
+                  f"steps={trace.steps} "
+                  f"forward_passes={trace.forward_passes} "
+                  f"final_no_repeat={trace.final_no_repeat} "
+                  f"completed={trace.completed}",
+                  file=sys.stderr)
+            if trace.completed:
+                import json as _json
+                print("[xiiv] csbr certificate: " + _json.dumps(
+                    {k: cert[k] for k in
+                     ("rollbacks", "rollback_log", "gate_rejects",
+                      "forward_passes", "final_no_repeat", "taboo")}),
+                    file=sys.stderr)
+        elif args.cgbs:
+            # CGBS path: certificate-guided beam search -- a beam over
+            # commit orders, not over tokens. Each successor commits
+            # exactly one (position, token) and is admitted only if
+            # the independent verifier accepts its canvas; the beam
+            # score is the sum of log-probabilities, so certificate
+            # validity gates likelihood rather than trading against
+            # it. A verifier-rejected successor is pruned and its
+            # (position, token) tabooed run-wide. Emits a cgbs-v1
+            # certificate.
+            from .cgbs import CGBSConfig, cgbs_sample
+            frozen = {}
+            if prompt_ids is not None:
+                frozen = {i: int(t)
+                          for i, t in enumerate(prompt_ids.tolist())}
+            dev = next(model.parameters()).device
+
+            def _cgbs_model(x):
+                with torch.no_grad():
+                    return model(x.to(dev)).cpu()
+            ids, trace, cert = cgbs_sample(
+                _cgbs_model, length=args.length, mask_id=tok.mask_id,
+                config=CGBSConfig(), frozen=frozen)
+            conf, traj = None, None
+            used_cgbs = True
+            print(f"[xiiv] cgbs: commits={trace.commits} "
+                  f"expansions={trace.expansions} "
+                  f"prunes={trace.certificate_prunes} "
+                  f"gate_rejects={trace.gate_rejects} "
+                  f"rounds={trace.rounds} "
+                  f"forward_passes={trace.forward_passes} "
+                  f"final_no_repeat={trace.final_no_repeat} "
+                  f"completed={trace.completed}",
+                  file=sys.stderr)
+            if trace.completed:
+                import json as _json
+                print("[xiiv] cgbs certificate: " + _json.dumps(
+                    {k: cert[k] for k in
+                     ("expansions", "certificate_prunes", "gate_rejects",
+                      "forward_passes", "final_no_repeat", "taboo")}),
+                    file=sys.stderr)
+        elif args.cvel:
+            # CVEL path: certificate-verified expansion length -- the
+            # sampler starts from the given canvas and grows it only
+            # on a proof, from the independent length-satisfiability
+            # oracle, that the current canvas cannot be completed
+            # into a contract-satisfying one. The CLI supplies no
+            # contract, so the length check is inert here and the run
+            # is the vanilla greedy loop with a cvel-v1 certificate;
+            # the contract-gated behavior is exercised by
+            # xiiv/tests/test_cvel.py. Emits a cvel-v1 certificate.
+            from .cvel import CVELConfig, cvel_sample
+            frozen = {}
+            if prompt_ids is not None:
+                frozen = {i: int(t)
+                          for i, t in enumerate(prompt_ids.tolist())}
+            dev = next(model.parameters()).device
+
+            def _cvel_model(x):
+                with torch.no_grad():
+                    return model(x.to(dev)).cpu()
+            ids, trace, cert = cvel_sample(
+                _cvel_model, length=args.length, mask_id=tok.mask_id,
+                config=CVELConfig(), frozen=frozen)
+            conf, traj = None, None
+            used_cvel = True
+            print(f"[xiiv] cvel: commits={trace.commits} "
+                  f"expansions={trace.expansions} "
+                  f"length_failure={trace.length_failure} "
+                  f"gate_rejects={trace.gate_rejects} "
+                  f"rounds={trace.rounds} "
+                  f"forward_passes={trace.forward_passes} "
+                  f"final_no_repeat={trace.final_no_repeat} "
+                  f"completed={trace.completed}",
+                  file=sys.stderr)
+            if trace.completed:
+                import json as _json
+                print("[xiiv] cvel certificate: " + _json.dumps(
+                    {k: cert[k] for k in
+                     ("expansions_count", "length_failure", "gate_rejects",
+                      "forward_passes", "final_no_repeat")}),
+                    file=sys.stderr)
+        elif args.cvab:
+            # CVAB path: certificate-verified adaptive batching -- each
+            # round commits a batch sized by the certificate itself:
+            # members must be pairwise >= n apart (the certificate's
+            # interaction radius is n-1), so no n-gram window spans two
+            # batch members and the batch is provably certificate-safe;
+            # the batch is then re-checked with the independent
+            # verifier, with a width-1 fallback and fail-closed stall.
+            # Emits a cvab-v1 certificate.
+            from .cvab import CVABConfig, cvab_sample
+            frozen = {}
+            if prompt_ids is not None:
+                frozen = {i: int(t)
+                          for i, t in enumerate(prompt_ids.tolist())}
+            dev = next(model.parameters()).device
+
+            def _cvab_model(x):
+                with torch.no_grad():
+                    return model(x.to(dev)).cpu()
+            ids, trace, cert = cvab_sample(
+                _cvab_model, length=args.length, mask_id=tok.mask_id,
+                config=CVABConfig(), frozen=frozen)
+            conf, traj = None, None
+            used_cvab = True
+            print(f"[xiiv] cvab: commits={trace.commits} "
+                  f"batches={trace.batches} "
+                  f"shrinks={trace.shrinks} "
+                  f"verify_alarms={trace.verify_alarms} "
+                  f"gate_rejects={trace.gate_rejects} "
+                  f"rounds={trace.rounds} "
+                  f"forward_passes={trace.forward_passes} "
+                  f"final_no_repeat={trace.final_no_repeat} "
+                  f"completed={trace.completed}",
+                  file=sys.stderr)
+            if trace.completed:
+                import json as _json
+                print("[xiiv] cvab certificate: " + _json.dumps(
+                    {k: cert[k] for k in
+                     ("batches", "shrinks", "verify_alarms",
+                      "gate_rejects", "forward_passes",
+                      "final_no_repeat")}),
+                    file=sys.stderr)
+        elif args.cvou:
+            # CVOU path: certificate-verified ordered unmasking -- each
+            # round commits only a segment head (a masked position
+            # whose left (n-1)-window is already committed), chosen by
+            # safe-candidate rank; the order is the certificate's
+            # closure frontier, so the committed prefix is final after
+            # every round (prefix finality / incremental certification)
+            # and on a blank canvas the order reduces to strict
+            # left-to-right. Emits a cvou-v1 certificate.
+            from .cvou import CVOUConfig, cvou_sample
+            frozen = {}
+            if prompt_ids is not None:
+                frozen = {i: int(t)
+                          for i, t in enumerate(prompt_ids.tolist())}
+            dev = next(model.parameters()).device
+
+            def _cvou_model(x):
+                with torch.no_grad():
+                    return model(x.to(dev)).cpu()
+            ids, trace, cert = cvou_sample(
+                _cvou_model, length=args.length, mask_id=tok.mask_id,
+                config=CVOUConfig(), frozen=frozen)
+            conf, traj = None, None
+            used_cvou = True
+            print(f"[xiiv] cvou: commits={trace.commits} "
+                  f"windows_closed={trace.windows_closed} "
+                  f"prefix_area={trace.prefix_area} "
+                  f"gate_rejects={trace.gate_rejects} "
+                  f"rounds={trace.rounds} "
+                  f"forward_passes={trace.forward_passes} "
+                  f"final_no_repeat={trace.final_no_repeat} "
+                  f"completed={trace.completed}",
+                  file=sys.stderr)
+            if trace.completed:
+                import json as _json
+                print("[xiiv] cvou certificate: " + _json.dumps(
+                    {k: cert[k] for k in
+                     ("windows_closed", "prefix_area",
+                      "gate_rejects", "forward_passes",
+                      "final_no_repeat")}),
+                    file=sys.stderr)
         else:
             if args.cgec:
                 # CGEC path: certificate-guided early commit over the
@@ -459,6 +669,11 @@ def cmd_generate(args, model, cfg, tok):
             else "cbrs" if used_cbrs
             else "ccca" if used_ccca
             else "cwtc" if used_cwtc
+            else "csbr" if used_csbr
+            else "cgbs" if used_cgbs
+            else "cvel" if used_cvel
+            else "cvab" if used_cvab
+            else "cvou" if used_cvou
             else "cgec" if used_cgec
             else "generate")
     print(f"\n[xiiv] {mode}: {n_tok} tokens, {args.steps} denoise steps, "
@@ -622,6 +837,70 @@ def main():
                         "still below the confidence threshold; credit "
                         "decays, so stale endorsement never commits; "
                         "emits a cwtc-v1 certificate "
+                        "(experimental: tested on scripted models only, "
+                        "not yet evaluated on a real checkpoint)")
+    g.add_argument("--csbr", action="store_true",
+                   help="CSBR: certificate-snapshot backtracking rollback — "
+                        "snapshots are taken only at certificate-clean "
+                        "states; a stall rolls back to the most recent "
+                        "snapshot, taboos the (position, token) pairs that "
+                        "led into the stall, and re-masks the lowest-margin "
+                        "committed positions for re-decision, so a run can "
+                        "retreat from a stagnation trap without surrendering "
+                        "the guarantee; taboo only ever grows; "
+                        "emits a csbr-v1 certificate "
+                        "(experimental: tested on scripted models only, "
+                        "not yet evaluated on a real checkpoint)")
+    g.add_argument("--cgbs", action="store_true",
+                   help="CGBS: certificate-guided beam search — a beam "
+                        "over commit orders, not over tokens; each "
+                        "successor commits one (position, token) and is "
+                        "admitted only if the independent verifier "
+                        "accepts its canvas; beam score is sum "
+                        "log-probability, so certificate validity gates "
+                        "likelihood rather than trading against it; "
+                        "verifier-rejected successors are pruned and "
+                        "tabooed run-wide; "
+                        "emits a cgbs-v1 certificate "
+                        "(experimental: tested on scripted models only, "
+                        "not yet evaluated on a real checkpoint)")
+    g.add_argument("--cvel", action="store_true",
+                   help="CVEL: certificate-verified expansion length — "
+                        "the sampler grows the canvas only on a proof, "
+                        "from an independent length-satisfiability "
+                        "oracle, that the current canvas cannot be "
+                        "completed into a contract-satisfying one; "
+                        "each expansion is justified in the certificate "
+                        "with pre/post satisfiability and the "
+                        "pre-expansion canvas, and the run fails closed "
+                        "when the contract cannot be satisfied within "
+                        "max_length; "
+                        "emits a cvel-v1 certificate "
+                        "(experimental: tested on scripted models only, "
+                        "not yet evaluated on a real checkpoint)")
+    g.add_argument("--cvab", action="store_true",
+                   help="CVAB: certificate-verified adaptive batching — "
+                        "each round commits a batch sized by the "
+                        "certificate itself: members must be pairwise "
+                        ">= n apart (the certificate's interaction "
+                        "radius is n-1), so no n-gram window spans two "
+                        "batch members and the batch is provably "
+                        "certificate-safe; the batch is re-checked with "
+                        "the independent verifier, with a width-1 "
+                        "fallback and fail-closed stall; "
+                        "emits a cvab-v1 certificate "
+                        "(experimental: tested on scripted models only, "
+                        "not yet evaluated on a real checkpoint)")
+
+    g.add_argument("--cvou", action="store_true",
+                   help="CVOU: certificate-verified ordered unmasking — "
+                        "each round commits only a segment head (a masked "
+                        "position whose left (n-1)-window is already "
+                        "committed), chosen by safe-candidate rank; the "
+                        "order is the certificate's closure frontier, so "
+                        "the committed prefix is final after every round "
+                        "and on a blank canvas the order reduces to strict "
+                        "left-to-right; emits a cvou-v1 certificate "
                         "(experimental: tested on scripted models only, "
                         "not yet evaluated on a real checkpoint)")
 

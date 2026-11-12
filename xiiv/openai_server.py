@@ -39,7 +39,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import torch
 
-from .sample import load_model
+from .sample import load_model, resolve_device
 from .tokenizer import XIIVTokenizer
 from .diffusion import sample_trajectory
 from .contracts import Contract
@@ -177,13 +177,18 @@ def main():
                          "pass xiiv-1b when serving a 1B checkpoint)")
     ap.add_argument("--port", type=int, default=11434)
     ap.add_argument("--threads", type=int, default=2)
+    ap.add_argument("--device", default="auto", choices=["auto", "cpu", "cuda"],
+                    help="device resolution (same semantics as xiiv.sample: "
+                         "--device cuda on a CUDA-less box exits loudly, "
+                         "never silently falls back to CPU)")
     ap.add_argument("--parent-vocab-only", action="store_true",
                     help="restrict sampling to the first 8192 token ids "
                          "(trained parent vocab of grown checkpoints)")
     args = ap.parse_args()
+    device = resolve_device(args.device)
     torch.set_num_threads(args.threads)
     Handler.tok = XIIVTokenizer(args.tokenizer)
-    Handler.model, _ = load_model(args.weights)
+    Handler.model, _ = load_model(args.weights, device=device)
     Handler.parent_vocab_only = args.parent_vocab_only
     if args.model_id:
         Handler.model_id = args.model_id

@@ -75,6 +75,10 @@ def main():
         assert loss.requires_grad, "loss carries no grad"
         assert torch.isfinite(loss).item(), f"non-finite loss at {step}"
         assert "cold" in info, "info missing 'cold' flag"
+        # Trainer contract (lever3_train.py:428 reads info["n_masked"]):
+        # leg-3 v1 died KeyError on step one because csc.py never set it.
+        assert "n_masked" in info, "info missing 'n_masked' (trainer contract)"
+        assert isinstance(info["n_masked"], int) and info["n_masked"] > 0
         if info["cold"]:
             assert "l_cold" in info
             cold_losses.append(info["l_cold"].item())

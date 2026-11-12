@@ -93,6 +93,7 @@ def cold_start_loss(model, batch_ids: torch.Tensor, mask_id: int,
                                batch_ids.reshape(-1))
         info["cold"] = True
         info["l_cold"] = loss.detach()
+        info["n_masked"] = int(batch_ids.numel())
         return lambda_cold * loss, info
 
     # Standard denoising batch (unchanged regime).
@@ -102,4 +103,5 @@ def cold_start_loss(model, batch_ids: torch.Tensor, mask_id: int,
     loss = F.cross_entropy(logits[mask], targets[mask])
     info["cold"] = False
     info["l_denoise"] = loss.detach()
+    info["n_masked"] = int(mask.sum().item())
     return loss, info

@@ -122,6 +122,7 @@ def cmd_generate(args, model, cfg, tok):
     used_cvel = False
     used_cvab = False
     used_cvou = False
+    used_cmss = False
     if args.scratchpad > 0:
         # Two-phase reasoning: scratchpad first, answer conditioned on it.
         ids, conf, scratch = generate_with_scratchpad(
@@ -596,6 +597,48 @@ def cmd_generate(args, model, cfg, tok):
                       "gate_rejects", "forward_passes",
                       "final_no_repeat")}),
                     file=sys.stderr)
+        elif args.cmss:
+            # CMSS path: certificate mutual-stability sampling -- each
+            # round observes every masked position and commits only
+            # positions whose top-1 prediction is stable across
+            # reverse steps (high confidence, persistent top-1, low
+            # inter-step top-K Jensen-Shannon divergence); each commit
+            # carries its stability triple in the certificate, the
+            # gate still has the final word, and an oscillating model
+            # exhausts max_rounds and fails closed instead of emitting
+            # an unsettled canvas. Emits a cmss-v1 certificate.
+            from .cmss import CMSSConfig, cmss_sample
+            frozen = {}
+            if prompt_ids is not None:
+                frozen = {i: int(t)
+                          for i, t in enumerate(prompt_ids.tolist())}
+            dev = next(model.parameters()).device
+
+            def _cmss_model(x):
+                with torch.no_grad():
+                    return model(x.to(dev)).cpu()
+            ids, trace, cert = cmss_sample(
+                _cmss_model, length=args.length, mask_id=tok.mask_id,
+                config=CMSSConfig(), frozen=frozen)
+            conf, traj = None, None
+            used_cmss = True
+            print(f"[xiiv] cmss: commits={trace.commits} "
+                  f"patience_rounds={trace.patience_rounds} "
+                  f"batch_shrinks={trace.batch_shrinks} "
+                  f"gate_rejects={trace.gate_rejects} "
+                  f"rounds={trace.rounds} "
+                  f"forward_passes={trace.forward_passes} "
+                  f"final_no_repeat={trace.final_no_repeat} "
+                  f"completed={trace.completed}",
+                  file=sys.stderr)
+            if trace.completed:
+                import json as _json
+                print("[xiiv] cmss certificate: " + _json.dumps(
+                    {k: cert[k] for k in
+                     ("patience_rounds", "batch_shrinks",
+                      "gate_rejects", "forward_passes",
+                      "final_no_repeat")}),
+                    file=sys.stderr)
         else:
             if args.cgec:
                 # CGEC path: certificate-guided early commit over the
@@ -674,6 +717,7 @@ def cmd_generate(args, model, cfg, tok):
             else "cvel" if used_cvel
             else "cvab" if used_cvab
             else "cvou" if used_cvou
+            else "cmss" if used_cmss
             else "cgec" if used_cgec
             else "generate")
     print(f"\n[xiiv] {mode}: {n_tok} tokens, {args.steps} denoise steps, "
@@ -901,6 +945,20 @@ def main():
                         "the committed prefix is final after every round "
                         "and on a blank canvas the order reduces to strict "
                         "left-to-right; emits a cvou-v1 certificate "
+                        "(experimental: tested on scripted models only, "
+                        "not yet evaluated on a real checkpoint)")
+
+    g.add_argument("--cmss", action="store_true",
+                   help="CMSS: certificate mutual-stability sampling — "
+                        "each round observes every masked position and "
+                        "commits only positions whose top-1 prediction is "
+                        "stable across reverse steps (high confidence, "
+                        "persistent top-1, low inter-step top-K "
+                        "Jensen-Shannon divergence); each commit carries "
+                        "its stability triple in the certificate, the "
+                        "gate still has the final word, and an oscillating "
+                        "model exhausts max_rounds and fails closed; "
+                        "emits a cmss-v1 certificate "
                         "(experimental: tested on scripted models only, "
                         "not yet evaluated on a real checkpoint)")
 

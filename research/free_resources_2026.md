@@ -258,3 +258,28 @@ This doesn't replace the CPU path — it **accelerates** it massively.
 - [Spheron Colab alternatives](https://www.spheron.network/blog/google-colab-alternatives-8-gpu-clouds-compared-2026/) (15 days ago)
 - [Oracle ARM halving](https://www.webpronews.com/oracle-slashes-always-free-arm-capacity-in-half/) (Aug 2026)
 - [502 free AI APIs list](https://theaileverage.beehiiv.com/p/502-free-ai-apis-412-with-no-credit-card-the-full-list-and-how-to-chain-them) (24 days ago)
+
+---
+
+## ADDENDUM — 2026-11-12 re-check (for Fahad's 2026-11-12 directive: train on Kaggle + other free GPUs, Dec public release)
+
+Re-checked 2026-11-12 against current provider pages / Nov-2026 comparisons. Three corrections to the 2026-10-15 audit above:
+
+### A. Lightning AI — terms corrected, and it is NOT a second 12h leg as-is
+- Official pricing (lightning.ai/pricing, checked in Nov-2026 sources): **5 credits on signup, +25 more after adding a card = 30 one-time credits**, "up to 50 free GPU hours" on interruptible machines (some third-party guides still quote ~80h on interruptible T4; the 50h figure is Lightning's own). The audit's "15 credits/month" is outdated — there is **no monthly refill**; it is a one-time trial allowance, credits expire after 12 months.
+- No card needed for the first 5 credits (phone verification unlocks them). The extra 25 need a card on file — do not add one without Fahad deciding.
+- Hard limit that matters for XIIV: **free Studios restart every 4 hours; A100/H100/H200 sessions are capped at 4h**. T4/L4/L40S sessions are listed as unlimited, but the Studio itself still restarts every 4h.
+- Fit check vs XIIV: Leg 3 checkpoints every 1000 steps (~2.9h at Leg 2's ~345 steps/h pace), so a 4h restart would strand at most ~1 gate interval of work — survivable in principle — BUT there is no Lightning kernel/resume plumbing; all automation is Kaggle-specific (`kaggle kernels push/status/output`). Lightning would need a new build + manual restarts every 4h.
+- Verdict: a **one-time ~50h reserve for short jobs** (A100 spot eval, a small experiment), not a parallel 12h training leg without new work. Activation is his signup only (~5 min, no card for the first 5 credits).
+
+### B. Google Colab free — unchanged, still manual-only
+- T4 (16GB) when available, no published quota, **no background execution, no scheduling since March 2026**, ~90-min idle timeout, 12h cap. Cannot run a leg unattended. Backup for manual prototyping only. Confirmed in Nov-2026 comparisons (fastero.com/blog/kaggle-vs-colab, 2026-11-06; freakyjolly.com, Nov 2026).
+
+### C. AWS SageMaker Studio Lab — DEAD for new users
+- **AWS closed new sign-ups on 2026-07-30** (existing users only). Remove it as a backup option; the audit's §1.5 no longer applies.
+
+### D. Kaggle — re-confirmed as the live route (2026-11-07/11 docs reads)
+- ~30 GPU-h/week ("sometimes higher"), T4 x2 (2× ~15GB), 12h sessions, 20h/week TPU. **P100 option retired 2026-09-15** — T4 x2 is now the only GPU choice. Leg 3 v2 is training on it now (launched 2026-11-12 18:24 IST, step 12000→19600, first gate step 13000, due ~06:30 IST 2026-11-13).
+
+### E. December public release — honest gate
+- "Ready-to-use model for everyone" (his 2026-11-12 words) is gated on generation, which is still **0/5 at every checkpoint evaluated (12 evaluations)**. Leg 3 CSC is the lever built for exactly that failure; its first gate (step 13000) is the next measured fact. No release packaging should be promised before that gate reads. Release-experience spec exists (`research/release_experience_spec.md`, 2026-10-20, draft) but is design, not a shipped demo.

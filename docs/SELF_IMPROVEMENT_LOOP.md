@@ -57,6 +57,38 @@ This is the composition that makes it unique: **self-improvement loop + guarante
 4. **No weight self-modification.** The loop improves outputs and accumulates skills. It does not touch model weights. Weight-level self-modification is a separate research track requiring its own safety design.
 5. **Audit log.** Every iteration (input, output, verifier verdict) is logged immutably. If something goes wrong, the full trace exists.
 
+## Reward design — the Honesty-Race rule (Forge RL constraint)
+
+When the Forge's verified successes become a training signal (Phase 4, verifiable-reward RL), the reward rule is itself a failure mode: a model paid for an unverifiable verdict ("this program is correct") can learn to *bluff* — to assert correctness the checker cannot confirm — instead of learning to produce checkable certificates. Bottman & Oblomkov, "Honesty Is a Race" (arXiv:2611.15779, Nov 11 2026), derive the first quantitative rule for this regime:
+
+- A GRPO step makes the model more honest exactly when **p̃·r/b > 1+κ**, where p̃ = rate the checker accepts the model's certificates, r = payoff for a checker-accepted certificate, b = payoff for an unverifiable verdict, κ = pull of items where the unverifiable verdict is right.
+- Below the threshold, runs collapse to bluffing. Just above it, runs first dip toward bluffing (on code, nearly to zero) before climbing back. There is also a **ceiling**: at p·r/b = 3, both code models called about half of correct programs buggy — paying the honest verdict too much makes the model deny correct work.
+- Training schedule matters: training generously under the checker and then cutting the payoff kept the model ≥67% honest across three seeds, where the same model trained from the start at that ratio fell to 4–15% honest.
+
+**Forge adoption (design constraint, implementation later):**
+1. Forge rewards pay **only for checker-accepted certificates**. An unverifiable verdict pays 0 — never a partial reward for asserting correctness the checker cannot confirm.
+2. The certificate/verdict payoff ratio must be kept **above the honesty threshold** (p̃·r/b > 1+κ) and **below the ceiling** where honest verdicts get paid for wrong answers. The ratio is tracked in the audit log alongside each run's honesty rate.
+3. Use the **generous-then-cut schedule**: train generously under the checker first, then cut the certificate payoff — do not start at the final ratio.
+
+**Status label (honest):** authors' claims, small-scale, single-lab, unreplicated — propositional Datalog, two code models, abstention on grade-school math. Adopted here as a cheap spec constraint because the failure mode it guards against (Forge teaching itself to bluff) would silently kill the guarantee-native thesis; the rule does not need replication before being written into the spec, but it must be re-checked against replication before any RL implementation relies on it.
+
+## Capability must precede reward — the sharpening rule (Forge RL constraint)
+
+A second failure mode for Phase 4: expecting verifiable-reward RL to *create* capability the base model does not have. Bangera & Gupta, "RLVR Sharpens the Pencil, Not the Mind" (arXiv:2611.02574, Nov 2 2026), tracked OLMo-2-1B across all 13 RLVR checkpoints on GSM8K:
+
+- First-try accuracy 58.0% → 61.3%, but pass@256 solution coverage 94.5% → 96.9% — the knowledge was already there; RLVR made the model reach for its best solution paths more often.
+- Probes for planted reasoning mistakes held AUROC 0.798–0.840 across all checkpoints and error types (spread smaller than the confidence interval) — the model never built a sharper internal picture of what a reasoning mistake looks like.
+- The only real internal change was at the final-answer token (early-vs-late probe AUROC 0.93), while the same probe on the actual reasoning steps landed near chance. RLVR makes the model lead with its best thinking; it does not change what that thinking is.
+
+**Forge adoption (design constraint, implementation later):**
+1. RLVR/Forge sharpens *selection among latent capabilities*; it does not create new capability. Forge Phase 4 (training on verified successes) must not be expected to conjure chess legality or proof-carrying generation from a base that lacks it — capability has to be present via training/data first.
+2. Before running a Forge reward loop on a task family, measure the base's latent coverage (pass@k). If coverage is ~0, the loop will sharpen nothing — route that family to training/data, not to more reward iterations.
+3. Direct consequence for the current generation gap: the 1B scores 0/5 generation at 20 evaluated checkpoints, so there is no latent coherent generation for a reward loop to sharpen. Forge/RLVR cannot fix that; the path is token scale + LR (see `research/generation_gap_diagnosis_2026-11-13.md`).
+
+This corroborates the "CANNOT (yet)" above — the loop amplifies capability, it doesn't create it — and pairs with the Honesty-Race rule: together they say *what* the reward loop can select for (honest, certificate-carrying behaviour the model already approximates) and *what it cannot* (capability the model does not have).
+
+**Status label (honest):** single 1B model, single task (GSM8K), workshop paper (COLM 2026, MOSS). An independent re-run (Novel Cognition, Nov 10) found the headline overstates: the 13 snapshots come from a *second* RLVR round — the gain over the pre-RLVR baseline (51.8%) was made in the first round — and the pass@256 rise is ~3 problems out of 128. The probe-flatness finding stands; the headline does not fully. Adopted as a cheap spec constraint for the same reason as the Honesty-Race rule; re-check against replication before any RL implementation relies on it.
+
 ## Implementation plan
 
 **Phase 1 — Harness (no model changes):** DONE 2026-10-11

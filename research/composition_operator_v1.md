@@ -318,6 +318,7 @@ Compute: trivial (CPU-only, <1M params total). This runs on the current box with
 | Neural bridge | (b) Certificates as constraints via fixed abstract transformers | (a) Network outputs proofs / (c) Differentiable proofs | (a) gradients don't flow through discrete proofs; (c) no working precedent |
 | Composition semantics | Hoare-style sequential composition | Category-theoretic / Type-theoretic | Directly matches the problem; proven sound; implementable |
 | Kill-gate scope | Explicit sequences, arithmetic | Program synthesis, NL | Isolates the architectural claim; interpretable failure modes |
+| Phase-1 verdict (2026-11-14) | PASS | KILL | Primary + §5.6 tasks 1–3 all PASS (A_PM(100) = 100%, flat curve, 98.5–99pp separation; see `research/proof_machine/DECISION.md`). Toy regime only — no claim on the 1B generation gap. |
 
 ---
 

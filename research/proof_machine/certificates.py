@@ -102,7 +102,16 @@ def canon(e):
             inner = f"({inner})"
         return f"-{inner}"
     if tag == "mod":
-        return f"({canon(e[1])} mod {e[2]})"
+        # Precedence fix (2026-11-16, Phase 2): the VRC parser binds `mod`
+        # tighter than `+` (term level), so a bare "(x0+3 mod 7)" parses as
+        # x0 + (3 mod 7), NOT mod(x0+3, 7). The old rendering was therefore
+        # ambiguous for every compound mod argument. Parenthesize the
+        # argument unless it is atomic (var/const) so that
+        # parse(canon(e)) == e holds for all e in the fragment.
+        inner = canon(e[1])
+        if e[1][0] not in ("var", "const"):
+            inner = f"({inner})"
+        return f"({inner} mod {e[2]})"
     raise ValueError(f"bad expr {e}")
 
 def eval_expr(e, x0):

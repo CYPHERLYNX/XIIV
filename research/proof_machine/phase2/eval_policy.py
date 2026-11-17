@@ -62,6 +62,8 @@ def main():
     ap.add_argument("--data", default=os.path.join(HERE, "data"))
     ap.add_argument("--pm-ckpt", default=os.path.join(PM, "checkpoints"))
     ap.add_argument("--limit", type=int, default=0)
+    ap.add_argument("--tag", default="step1",
+                    help="tag in the output filename eval_<tag>_<stamp>.json")
     args = ap.parse_args()
 
     saved = torch.load(args.ckpt, map_location="cpu", weights_only=True)
@@ -141,7 +143,7 @@ def main():
     }
     os.makedirs(os.path.join(HERE, "results"), exist_ok=True)
     stamp = time.strftime("%Y%m%d_%H%M%S")
-    path = os.path.join(HERE, "results", f"eval_step1_{stamp}.json")
+    path = os.path.join(HERE, "results", f"eval_{args.tag}_{stamp}.json")
     with open(path, "w") as f:
         json.dump(out, f, indent=2)
     print(json.dumps({k: out[k] for k in ("overall", "by_bucket")}, indent=2))

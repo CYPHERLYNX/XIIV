@@ -123,12 +123,50 @@ full symbolic equality — a plan differing from the target only outside the
 probe range would pass; probes span ±1000 so this is a bounded risk, and
 the stricter symbolic check would wrongly reject alt_valid plans.
 
+## Step 2 — GRPO with dense certificate-obligation reward (2026-11-17)
+
+**Status:** DONE. 150 steps, 8.3 min CPU, from the step-1 checkpoint.
+`rl_train.py` (GRPO, G=4, T=1.0, LR 1e-5, β_KL=0.02, no critic);
+`reward.py` (dense reward = fraction of the 5 probes whose full
+obligation is discharged — execute + certificate verifies + symbolic
+result == realized target; target equality is the integrity audit, so a
+verified-but-wrong plan scores ~0; no length term). Training specs
+stratified compound-heavy (4–6: 15%, 7–9: 25%, 10–12: 30%, 13–16: 30%;
+1–3 held out of RL) per the decomposed-to-composed asymmetry
+(arXiv:2609.19465). Reward uses the pure symbolic path (cheap, exact);
+full neural + certificate audits at steps 50/100/150: cert-valid 1.0
+every time. Training signals: mean rollout reward 0.694 → 0.763
+(first 10 vs last 10 steps), groups solved 0.825 → 0.878, KL ~0.05
+flat, entropy 0.164 → 0.141.
+
+**Pre-registered evaluation** (`results/eval_step2_20261117_013534.json`,
+same protocol as step 1, n=1500 held-out, greedy):
+
+| Metric | Step 1 | Step 2 | Δ |
+|---|---|---|---|
+| verified_success overall | 83.33% | **84.87%** | +1.54pp |
+| verified 13–16 ops | 41.41% | **49.22%** | +7.81pp |
+| verified 10–12 ops | 72.44% | 77.95% | +5.51pp |
+| verified 4–6 ops | 92.41% | 91.85% | −0.56pp |
+| verified 1–3 ops | 95.45% | 95.45% | 0.00pp |
+| alt_valid | 1.40% | 2.53% | +1.13pp |
+
+Failures 250 → 227, all `target-mismatch`; zero cert-invalid, zero
+neural-divergence, zero empty plans. **Pre-registered verdict: PRIMARY
+PASS, GUARDRAIL PASS** (both primary legs true; short buckets within
+5pp). Honest reading: the gain is modest (+23 net successes on 1,500)
+and neither leg alone clears a 95% significance bar — what makes it
+credible is the length-monotone shape (0.0 / −0.6 / +0.4 / +5.5 /
++7.8pp from short to long), exactly the designed pattern, with no
+atomic degradation. The 13–16 wall is dented (49%), not broken. Full
+detail: `research/daily_2026-11-17.md`.
+
 ## Next
 
-- RL stage (spec §6 option 2): policy-gradient on the trained warmup
-  policy with the dense certificate-obligation reward + target-equality
-  integrity audit (per 2610.19298), using the VRC harness as the
-  environment. Not started.
+- Longer GRPO run (400–600 steps, same recipe) — test whether the
+  long-bucket gain compounds or plateaus. Not started.
+- Token-level credit assignment (arXiv:2608.27906v3) as a step-3
+  refinement. Not started.
 - Conditional synthesis policy (`synthesize_conditional` targets) — same
   recipe, IFZ programs. Not started.
 - Integration question (DECISION.md): how the policy meets the diffusion

@@ -104,6 +104,55 @@ class Policy(nn.Module):
         return self.out(out)
 
     @torch.no_grad()
+    def sample_batch(self, spec_ids_list, group=4, temperature=1.0,
+                     max_len=24, seed=None):
+        """Batched temperature sampling for GRPO rollouts (Phase 2, step 2).
+
+        Each spec is sampled `group` times. Returns a list of op lists in
+        spec-major order (spec 0's `group` samples, then spec 1's, ...).
+        PAD and BOS are masked (never sampled); EOS terminates a sequence.
+        Deterministic given `seed`. Sampling runs in eval mode (no dropout).
+        """
+        if temperature <= 0:
+            raise ValueError("temperature must be > 0 for sampling")
+        self.eval()
+        src_list = []
+        for ids in spec_ids_list:
+            for _ in range(group):
+                src_list.append(ids)
+        bsz = len(src_list)
+        max_s = max(len(s) for s in src_list)
+        src = torch.full((bsz, max_s), SRC_PAD, dtype=torch.long)
+        for r, s in enumerate(src_list):
+            src[r, :len(s)] = torch.tensor(s)
+        src_pad = (src == SRC_PAD)
+        gen = (torch.Generator().manual_seed(seed)
+               if seed is not None else None)
+        src_e = self.pos(self.src_emb(src))
+        memory = self.tf.encoder(src_e, src_key_padding_mask=src_pad)
+        tgt = torch.full((bsz, 1), TGT_BOS, dtype=torch.long)
+        finished = torch.zeros(bsz, dtype=torch.bool)
+        for _ in range(max_len):
+            tgt_e = self.pos(self.tgt_emb(tgt))
+            causal = torch.triu(
+                torch.ones(tgt.size(1), tgt.size(1), dtype=torch.bool),
+                diagonal=1)
+            dec = self.tf.decoder(tgt_e, memory, tgt_mask=causal,
+                                  memory_key_padding_mask=src_pad)
+            logits = self.out(dec[:, -1, :]).float()
+            logits[:, TGT_PAD] = float("-inf")
+            logits[:, TGT_BOS] = float("-inf")
+            probs = torch.softmax(logits / temperature, dim=-1)
+            nxt = torch.multinomial(probs, 1, generator=gen).squeeze(1)
+            nxt = torch.where(finished,
+                              torch.full_like(nxt, TGT_PAD), nxt)
+            tgt = torch.cat([tgt, nxt.unsqueeze(1)], dim=1)
+            finished = finished | (nxt == TGT_EOS)
+            if bool(finished.all()):
+                break
+        return [decode_ops(row[1:]) for row in tgt.tolist()]
+
+    @torch.no_grad()
     def greedy(self, spec_ids, max_len=24):
         """Greedy decode for one spec (list of ids). Returns op list."""
         self.eval()

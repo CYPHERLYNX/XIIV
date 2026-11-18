@@ -161,14 +161,55 @@ credible is the length-monotone shape (0.0 / −0.6 / +0.4 / +5.5 /
 atomic degradation. The 13–16 wall is dented (49%), not broken. Full
 detail: `research/daily_2026-11-17.md`.
 
+## Step 3 — longer GRPO run, 500 steps (2026-11-18): PLATEAU
+
+**Status:** DONE. 500 steps, 28.1 min CPU, from the step-2 checkpoint
+(`rl_train.py --tag step3` — the tag names the checkpoint
+`policy_step3.pt` and the log `rl_log_step3.json`, so step 2's
+artifacts are never clobbered; the step-2 log was renamed
+`rl_log.json` → `rl_log_step2.json`). Same recipe as step 2 — the only
+variable under test is the step count. `results/rl_log_step3.json`;
+`results/eval_step3_20261118_014901.json`.
+
+Training signals (logged, not evaluation): mean rollout reward
+first-10 0.718 → last-10 0.745; groups solved 0.875 → 0.863; KL
+0.059 → 0.066; entropy 0.149 → 0.134 — all flat. Audit cert-valid
+1.0 at all 10 audits.
+
+**Pre-registered evaluation** (same protocol, n=1500 held-out, greedy):
+
+| Metric | Step 2 | Step 3 | Δ |
+|---|---|---|---|
+| verified_success overall | 84.87% | **85.47%** | +0.60pp |
+| verified 13–16 ops | 49.22% | **49.22%** | 0.00pp |
+| verified 10–12 ops | 77.95% | 78.35% | +0.40pp |
+| verified 4–6 ops | 91.85% | 92.78% | +0.93pp |
+| verified 1–3 ops | 95.45% | 95.45% | 0.00pp |
+| alt_valid | 2.53% | 3.67% | +1.13pp |
+
+Failures 227 → 218, all `target-mismatch`; zero cert-invalid, zero
+neural-divergence, zero empty plans. **Pre-registered verdict:
+PRIMARY FAIL — PLATEAU, GUARDRAIL PASS.** The overall leg is true
+(+0.60pp) but z = 0.46, not significant; the 13–16 leg is false —
+the bucket is literally identical (63/128 verified in both runs).
+Step 2's long-bucket gain did not compound with 350 more GRPO steps.
+Honest reading: response-level GRPO saturates at ~85% overall /
+~49% at 13–16; more steps of the same recipe buy nothing at the long
+end. The wall is a capability wall for this reward/policy scale, not a
+training-time wall. One real signal inside the flat top line:
+exact_match fell (−0.53pp) while verified rose and alt_valid rose —
+RL moves the policy toward alternative valid compositions, not toward
+more correct long plans. Full detail: `research/daily_2026-11-18.md`.
+
 ## Next
 
-- Longer GRPO run (400–600 steps, same recipe) — test whether the
-  long-bucket gain compounds or plateaus. Not started.
-- Token-level credit assignment (arXiv:2608.27906v3) as a step-3
-  refinement. Not started.
-- Conditional synthesis policy (`synthesize_conditional` targets) — same
-  recipe, IFZ programs. Not started.
+- **NOT a still-longer run of the same recipe** — step 3 closed that
+  direction (plateau, pre-registered).
+- Token-level credit assignment (arXiv:2608.27906v3) as a step-4
+  refinement — the reward is response-level today and long plans fail
+  late. Not started.
+- Conditional synthesis policy (`synthesize_conditional` targets) —
+  same recipe, IFZ programs. Not started.
 - Integration question (DECISION.md): how the policy meets the diffusion
   1B once generation exists. Untimed — the 1B has no generation to compose
   yet.

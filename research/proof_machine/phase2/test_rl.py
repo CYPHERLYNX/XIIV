@@ -113,6 +113,27 @@ def test_rl_smoke(tmp_path):
     moved = sum(1 for k in before
                 if not torch.equal(before[k], after["state_dict"][k]))
     assert moved > 0, "RL steps must move at least one parameter tensor"
-    log = json.load(open(os.path.join(HERE, "results", "rl_log.json")))
+    log = json.load(open(os.path.join(HERE, "results", "rl_log_step2.json")))
     assert len(log["steps"]) == 3
     assert all(0.0 <= s["mean_reward"] <= 1.0 for s in log["steps"])
+
+
+def test_tag_names_outputs(tmp_path):
+    """--tag step3 must write policy_step3.pt / rl_log_step3.json, never
+    clobbering the step-2 checkpoint or log (the step-3 run continues
+    from step 2, so both artifacts must survive)."""
+    out = str(tmp_path)
+    log_path = os.path.join(HERE, "results", "rl_log_smoke.json")
+    try:
+        rl_main(["--steps", "2", "--batch", "4", "--group", "2",
+                 "--audit-every", "2", "--audit-n", "2", "--out", out,
+                 "--tag", "smoke", "--seed", "20261118"])
+        assert os.path.exists(os.path.join(out, "policy_smoke.pt"))
+        assert not os.path.exists(os.path.join(out, "policy_step2.pt"))
+        assert os.path.exists(log_path)
+        log = json.load(open(log_path))
+        assert len(log["steps"]) == 2
+        assert log["config"]["tag"] == "smoke"
+    finally:
+        if os.path.exists(log_path):
+            os.remove(log_path)

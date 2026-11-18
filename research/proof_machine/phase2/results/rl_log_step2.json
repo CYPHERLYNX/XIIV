@@ -1,0 +1,53 @@
+{
+  "config": {
+    "data": "/home/hatch/workspace/ai-tools/corsac/research/proof_machine/phase2/data",
+    "init": "/home/hatch/workspace/ai-tools/corsac/research/proof_machine/phase2/checkpoints/policy_step1.pt",
+    "pm_ckpt": "/home/hatch/workspace/ai-tools/corsac/research/proof_machine/checkpoints",
+    "steps": 3,
+    "batch": 4,
+    "group": 2,
+    "lr": 1e-05,
+    "beta_kl": 0.02,
+    "temp": 1.0,
+    "seed": 20261117,
+    "audit_every": 3,
+    "audit_n": 2,
+    "out": "/tmp/pytest-of-root/pytest-1/test_rl_smoke0",
+    "tag": "step2"
+  },
+  "steps": [
+    {
+      "step": 1,
+      "mean_reward": 0.875,
+      "frac_groups_solved": 1.0,
+      "frac_rollouts_perfect": 0.875,
+      "pg_loss": 0.0071,
+      "kl": 0.0302,
+      "entropy": 0.0964,
+      "elapsed_s": 0.5
+    },
+    {
+      "step": 2,
+      "mean_reward": 0.875,
+      "frac_groups_solved": 1.0,
+      "frac_rollouts_perfect": 0.875,
+      "pg_loss": -0.0517,
+      "kl": 0.0821,
+      "entropy": 0.2251,
+      "elapsed_s": 1.0
+    },
+    {
+      "step": 3,
+      "mean_reward": 0.5,
+      "frac_groups_solved": 0.75,
+      "frac_rollouts_perfect": 0.5,
+      "pg_loss": -0.0449,
+      "kl": 0.0798,
+      "entropy": 0.1991,
+      "elapsed_s": 1.2,
+      "audit_cert_valid_frac": 1.0,
+      "audit_verified_frac": 0.5,
+      "audit_n": 2
+    }
+  ]
+}

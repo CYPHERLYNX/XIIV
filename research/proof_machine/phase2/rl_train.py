@@ -40,13 +40,22 @@ the FULL neural + certificate path (reward.full_verify) and the
 cert-valid fraction is logged — this checks the symbolic-reward
 assumption that certificates are structural (Phase-1 V = 100%).
 
-Saves: checkpoints/policy_step2.pt (state_dict + config) and
-results/rl_log.json (config + per-step rows). CPU-only. Deterministic
+Saves: checkpoints/policy_<tag>.pt (state_dict + config) and
+results/rl_log_<tag>.json (config + per-step rows). CPU-only. Deterministic
 given --seed.
 
 Usage:
     python rl_train.py [--steps 150] [--batch 32] [--group 4]
                        [--lr 1e-5] [--beta-kl 0.02] [--temp 1.0]
+                       [--init checkpoints/policy_step1.pt]
+                       [--tag step2]
+
+  --tag names the outputs: checkpoints/policy_<tag>.pt and
+  results/rl_log_<tag>.json. Step 3 (2026-11-18, longer run) continues
+  from the step-2 checkpoint with --tag step3 --steps 500 --seed 20261118;
+  the KL reference is then the step-2 checkpoint, i.e. each stage anchors
+  to its own init — the recipe is otherwise unchanged, so the only
+  variable under test is the step count.
 """
 import argparse
 import json
@@ -162,6 +171,9 @@ def main(argv=None):
     ap.add_argument("--audit-every", type=int, default=50)
     ap.add_argument("--audit-n", type=int, default=16)
     ap.add_argument("--out", default=os.path.join(HERE, "checkpoints"))
+    ap.add_argument("--tag", default="step2",
+                    help="Run tag: checkpoint saved as policy_<tag>.pt, "
+                         "log as rl_log_<tag>.json.")
     args = ap.parse_args(argv)
 
     torch.manual_seed(args.seed)
@@ -262,13 +274,14 @@ def main(argv=None):
             print(row, flush=True)
 
     os.makedirs(args.out, exist_ok=True)
-    ckpt = os.path.join(args.out, "policy_step2.pt")
+    ckpt = os.path.join(args.out, f"policy_{args.tag}.pt")
     torch.save({"state_dict": model.state_dict(),
                 "config": {"d_model": saved["config"]["d_model"],
                            "num_layers": saved["config"]["num_layers"]}},
                ckpt)
     os.makedirs(os.path.join(HERE, "results"), exist_ok=True)
-    with open(os.path.join(HERE, "results", "rl_log.json"), "w") as f:
+    with open(os.path.join(HERE, "results", f"rl_log_{args.tag}.json"),
+              "w") as f:
         json.dump(log, f, indent=2)
     print(f"saved {ckpt} in {time.time() - t0:.0f}s", flush=True)
 
